@@ -1,472 +1,467 @@
 const express = require("express");
 const path = require("path");
 const multer = require("multer");
-const fs = require("fs");
-const crypto = require("crypto");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 
 const PORT = process.env.PORT || 10000;
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-app.use(express.json({ limit: "15mb" }));
-app.use(express.urlencoded({ extended: true }));
+const TEXT_MODEL =
+  process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";
 
-const uploadDir = path.join(__dirname, "uploads");
+const IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-}
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 const upload = multer({
-    dest: uploadDir,
-    limits: {
-        fileSize: 10 * 1024 * 1024
-    }
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024
+  }
 });
+
+/* =========================
+   ARCHIVOS DE LA WEB
+========================= */
 
 app.use(express.static(path.join(__dirname, "public")));
 
+/* =========================
+   ESTADÍSTICAS
+========================= */
+
 let statistics = {
-    requests: 0,
-    images: 0,
-    files: 0,
-    users: new Set(),
-    started: Date.now()
+  visitors: 0,
+  messages: 0,
+  images: 0,
+  files: 0
 };
 
-const conversations = new Map();
-
-function createUserId(req) {
-    const existing = req.headers["x-morvix-user"];
-
-    if (existing) {
-        return existing;
-    }
-
-    return crypto
-        .createHash("sha256")
-        .update(
-            (req.ip || "unknown") +
-            "-" +
-            (req.headers["user-agent"] || "")
-        )
-        .digest("hex")
-        .slice(0, 20);
-}
-
-function getModel() {
-    if (!GEMINI_API_KEY) {
-        throw new Error(
-            "Falta configurar GEMINI_API_KEY en Render."
-        );
-    }
-
-    const genAI = new GoogleGenerativeAI(
-        GEMINI_API_KEY
-    );
-
-    return genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-lite"
-    });
-}
-
-
-/*
-====================================================
-                    HEALTH
-====================================================
-*/
-
-app.get("/api/health", (req, res) => {
-    res.json({
-        ok: true,
-        name: "MORVIX AI",
-        status: "online"
-    });
+app.get("/api/stats", (req, res) => {
+  res.json(statistics);
 });
 
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    app: "MORVIX AI",
+    geminiConfigured: !!GEMINI_API_KEY,
+    textModel: TEXT_MODEL,
+    imageModel: IMAGE_MODEL
+  });
+});
 
-/*
-====================================================
-                    CHAT
-====================================================
-*/
+app.get("/api/models", async (req, res) => {
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({
+      error: "GEMINI_API_KEY no está configurada en Render."
+    });
+  }
+
+  try {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    const models = (data.models || []).map(model => ({
+      name: model.name,
+      displayName: model.displayName,
+      description: model.description,
+      methods: model.supportedGenerationMethods || []
+    }));
+
+    res.json({
+      models
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "No se pudieron consultar los modelos."
+    });
+  }
+});
+
+/* =========================
+   VISITAS
+========================= */
+
+app.get("/", (req, res) => {
+
+  statistics.visitors++;
+
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
+});
+
+/* =========================
+   CHAT
+========================= */
 
 app.post("/api/chat", async (req, res) => {
 
-    const userId = createUserId(req);
+  statistics.messages++;
 
-    statistics.requests++;
-    statistics.users.add(userId);
+  if (!GEMINI_API_KEY) {
 
-    try {
+    return res.status(500).json({
+      error:
+        "MORVIX no tiene configurada GEMINI_API_KEY en Render."
+    });
 
-        const model = getModel();
+  }
 
-        const incomingMessages =
-            Array.isArray(req.body.messages)
-                ? req.body.messages
-                : [];
+  try {
 
-        const cleanMessages =
-            incomingMessages
-                .slice(-30)
-                .filter(
-                    m =>
-                        m &&
-                        typeof m.content === "string"
-                );
+    const incomingMessages =
+      Array.isArray(req.body.messages)
+        ? req.body.messages
+        : [];
 
-        if (cleanMessages.length === 0) {
-            return res.status(400).json({
-                error: "No se recibió ningún mensaje."
-            });
+    const contents = incomingMessages.map(message => ({
+      role:
+        message.role === "assistant"
+          ? "model"
+          : "user",
+
+      parts: [
+        {
+          text: String(message.content || "")
         }
+      ]
+    }));
 
-        const history = cleanMessages
-            .slice(0, -1)
-            .map(message => ({
-                role:
-                    message.role === "assistant"
-                        ? "model"
-                        : "user",
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
-                parts: [
-                    {
-                        text: message.content
-                    }
-                ]
-            }));
+    const response = await fetch(url, {
 
-        const lastMessage =
-            cleanMessages[cleanMessages.length - 1];
+      method: "POST",
 
-        const chat = model.startChat({
-            history,
-            generationConfig: {
-                temperature: 0.8,
-                maxOutputTokens: 4096
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+
+        systemInstruction: {
+          parts: [
+            {
+              text:
+                "Tu nombre es MORVIX AI. " +
+                "Eres un asistente moderno, útil, claro y amigable. " +
+                "Responde en español salvo que el usuario solicite otro idioma. " +
+                "Utiliza Markdown cuando ayude a organizar la respuesta. " +
+                "Para código utiliza bloques Markdown. " +
+                "No inventes información."
             }
-        });
+          ]
+        },
 
-        const result =
-            await chat.sendMessage(
-                lastMessage.content
-            );
+        contents,
 
-        const response =
-            result.response;
-
-        const answer =
-            response.text();
-
-        conversations.set(
-            userId,
-            cleanMessages.concat([
-                {
-                    role: "assistant",
-                    content: answer
-                }
-            ]).slice(-50)
-        );
-
-        res.json({
-            answer,
-            model: "gemini-2.5-flash-lite"
-        });
-
-    } catch (error) {
-
-        console.error(
-            "ERROR GEMINI:",
-            error
-        );
-
-        let message =
-            "MORVIX no pudo conectarse con la IA.";
-
-        const errorText =
-            String(
-                error?.message ||
-                error
-            );
-
-        if (
-            errorText.includes("API_KEY") ||
-            errorText.includes("api key")
-        ) {
-            message =
-                "La API de Gemini no está configurada correctamente en Render.";
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096
         }
 
-        if (
-            errorText.includes("429") ||
-            errorText.includes("quota") ||
-            errorText.includes("RESOURCE_EXHAUSTED")
-        ) {
-            message =
-                "Se alcanzó temporalmente el límite gratuito de Gemini. Inténtalo nuevamente más tarde.";
-        }
+      })
 
-        if (
-            errorText.includes("404") ||
-            errorText.includes("NOT_FOUND")
-        ) {
-            message =
-                "El modelo de Gemini configurado no está disponible para esta cuenta.";
-        }
+    });
 
-        res.status(500).json({
-            error: message,
-            details: errorText
-        });
+    const data = await response.json();
+
+    if (!response.ok) {
+
+      console.error(
+        "Gemini:",
+        JSON.stringify(data, null, 2)
+      );
+
+      return res.status(response.status).json({
+        error:
+          data?.error?.message ||
+          "Error de Gemini."
+      });
+
     }
+
+    const answer =
+      data?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("") ||
+      "No pude generar una respuesta.";
+
+    res.json({
+      answer,
+      model: TEXT_MODEL
+    });
+
+  } catch (error) {
+
+    console.error("CHAT ERROR:", error);
+
+    res.status(500).json({
+      error:
+        "MORVIX tuvo un error al comunicarse con Gemini."
+    });
+
+  }
+
 });
 
+/* =========================
+   GENERACIÓN DE IMÁGENES
+========================= */
 
-/*
-====================================================
-                GENERACIÓN DE IMAGEN
-====================================================
+app.post("/api/image", async (req, res) => {
 
-La ruta queda preparada para conectar
-un proveedor de imágenes.
+  if (!GEMINI_API_KEY) {
 
-No se inventará una imagen si el proveedor
-no está disponible.
-*/
+    return res.status(500).json({
+      error:
+        "GEMINI_API_KEY no está configurada."
+    });
 
-app.post(
-    "/api/generate-image",
-    async (req, res) => {
+  }
 
-        statistics.images++;
+  const prompt =
+    String(req.body.prompt || "").trim();
 
-        const prompt =
-            typeof req.body.prompt === "string"
-                ? req.body.prompt.trim()
-                : "";
+  if (!prompt) {
 
-        if (!prompt) {
-            return res.status(400).json({
-                error:
-                    "Escribe una descripción para crear la imagen."
-            });
-        }
+    return res.status(400).json({
+      error: "Escribe una descripción para la imagen."
+    });
 
-        /*
-        Puedes conectar aquí un proveedor de
-        generación de imágenes con API.
+  }
 
-        Por seguridad, actualmente devolvemos
-        un mensaje claro en lugar de fingir
-        que la imagen fue creada.
-        */
+  try {
 
-        return res.status(501).json({
-            error:
-                "La generación de imágenes necesita un proveedor de imágenes configurado."
-        });
-    }
-);
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
+    const response = await fetch(url, {
 
-/*
-====================================================
-                    ARCHIVOS
-====================================================
-*/
+      method: "POST",
 
-app.post(
-    "/api/upload",
-    upload.single("file"),
-    async (req, res) => {
+      headers: {
+        "Content-Type": "application/json"
+      },
 
-        statistics.files++;
+      body: JSON.stringify({
 
-        try {
+        contents: [
+          {
+            role: "user",
 
-            if (!req.file) {
-                return res.status(400).json({
-                    error:
-                        "No se recibió ningún archivo."
-                });
-            }
-
-            const originalName =
-                req.file.originalname;
-
-            const mime =
-                req.file.mimetype;
-
-            const fileSize =
-                req.file.size;
-
-            let text = null;
-
-            const textTypes = [
-                "text/plain",
-                "text/markdown",
-                "application/json",
-                "text/csv",
-                "text/html",
-                "text/css",
-                "application/javascript"
-            ];
-
-            if (
-                textTypes.includes(mime)
-            ) {
-
-                text =
-                    fs.readFileSync(
-                        req.file.path,
-                        "utf8"
-                    );
-            }
-
-            fs.unlink(
-                req.file.path,
-                () => {}
-            );
-
-            res.json({
-                success: true,
-                file: {
-                    name: originalName,
-                    type: mime,
-                    size: fileSize
-                },
-                text
-            });
-
-        } catch (error) {
-
-            console.error(
-                "ERROR ARCHIVO:",
-                error
-            );
-
-            res.status(500).json({
-                error:
-                    "No se pudo procesar el archivo."
-            });
-        }
-    }
-);
-
-
-/*
-====================================================
-                    ESTADÍSTICAS
-====================================================
-*/
-
-app.get(
-    "/api/stats",
-    (req, res) => {
-
-        const uptime =
-            Date.now() -
-            statistics.started;
-
-        res.json({
-            requests:
-                statistics.requests,
-
-            images:
-                statistics.images,
-
-            files:
-                statistics.files,
-
-            users:
-                statistics.users.size,
-
-            uptime
-        });
-    }
-);
-
-
-/*
-====================================================
-                INFORMACIÓN DE MORVIX
-====================================================
-*/
-
-app.get(
-    "/api/info",
-    (req, res) => {
-
-        res.json({
-            name: "MORVIX AI",
-            version: "3.0.0",
-            model: "gemini-2.5-flash-lite",
-            features: [
-                "Chat IA",
-                "Markdown",
-                "Código",
-                "Historial",
-                "Archivos",
-                "Imágenes",
-                "Búsqueda web preparada",
-                "PWA",
-                "Modo oscuro",
-                "Estadísticas"
+            parts: [
+              {
+                text: prompt
+              }
             ]
-        });
-    }
-);
+          }
+        ],
 
+        generationConfig: {
 
-/*
-====================================================
-                    FRONTEND
-====================================================
-*/
+          responseModalities: [
+            "TEXT",
+            "IMAGE"
+          ]
 
-app.use(
-    (req, res, next) => {
-
-        if (
-            req.method === "GET" &&
-            !req.path.startsWith("/api/")
-        ) {
-            return res.sendFile(
-                path.join(
-                    __dirname,
-                    "public",
-                    "index.html"
-                )
-            );
         }
 
-        next();
+      })
+
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+      console.error(
+        "IMAGE ERROR:",
+        JSON.stringify(data, null, 2)
+      );
+
+      return res.status(response.status).json({
+        error:
+          data?.error?.message ||
+          "El modelo de imágenes no está disponible para esta API key."
+      });
+
     }
+
+    const parts =
+      data?.candidates?.[0]?.content?.parts || [];
+
+    const imagePart =
+      parts.find(
+        part =>
+          part.inlineData &&
+          part.inlineData.mimeType?.startsWith("image/")
+      );
+
+    if (!imagePart) {
+
+      const text =
+        parts
+          .map(part => part.text || "")
+          .join("");
+
+      return res.status(500).json({
+        error:
+          text ||
+          "El modelo respondió, pero no devolvió una imagen."
+      });
+
+    }
+
+    statistics.images++;
+
+    res.json({
+
+      image:
+        `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+
+      model: IMAGE_MODEL
+
+    });
+
+  } catch (error) {
+
+    console.error("IMAGE ERROR:", error);
+
+    res.status(500).json({
+      error:
+        "No se pudo generar la imagen."
+    });
+
+  }
+
+});
+
+/* =========================
+   ARCHIVOS
+========================= */
+
+app.post(
+  "/api/upload",
+  upload.single("file"),
+  async (req, res) => {
+
+    if (!req.file) {
+
+      return res.status(400).json({
+        error: "No se recibió ningún archivo."
+      });
+
+    }
+
+    statistics.files++;
+
+    res.json({
+
+      success: true,
+
+      file: {
+        name: req.file.originalname,
+        type: req.file.mimetype,
+        size: req.file.size
+      },
+
+      message:
+        `Archivo "${req.file.originalname}" recibido correctamente.`
+
+    });
+
+  }
 );
 
+/* =========================
+   BÚSQUEDA WEB
+========================= */
 
-/*
-====================================================
-                    SERVIDOR
-====================================================
-*/
+app.get("/api/search", async (req, res) => {
 
-app.listen(
-    PORT,
-    () => {
+  const query =
+    String(req.query.q || "").trim();
 
-        console.log(
-            `MORVIX AI funcionando en el puerto ${PORT}`
-        );
+  if (!query) {
 
-        console.log(
-            GEMINI_API_KEY
-                ? "Gemini API configurada."
-                : "ADVERTENCIA: GEMINI_API_KEY no está configurada."
-        );
-    }
-);
+    return res.status(400).json({
+      error: "Escribe algo para buscar."
+    });
+
+  }
+
+  /*
+    MORVIX no hace scraping automático de Google.
+    Esta ruta deja preparada la función.
+  */
+
+  res.json({
+
+    query,
+
+    message:
+      "Búsqueda web preparada. Puedes conectar aquí un proveedor de búsqueda cuando quieras."
+
+  });
+
+});
+
+/* =========================
+   SPA FALLBACK
+========================= */
+
+app.use((req, res) => {
+
+  if (req.method === "GET") {
+
+    res.sendFile(
+      path.join(__dirname, "public", "index.html")
+    );
+
+  } else {
+
+    res.status(404).json({
+      error: "Ruta no encontrada."
+    });
+
+  }
+
+});
+
+/* =========================
+   SERVIDOR
+========================= */
+
+app.listen(PORT, "0.0.0.0", () => {
+
+  console.log(
+    `MORVIX AI funcionando en el puerto ${PORT}`
+  );
+
+  console.log(
+    `Modelo de texto: ${TEXT_MODEL}`
+  );
+
+  console.log(
+    `Modelo de imágenes: ${IMAGE_MODEL}`
+  );
+
+});
