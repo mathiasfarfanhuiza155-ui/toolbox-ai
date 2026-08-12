@@ -1,4 +1,5 @@
-const chat = document.getElementById("chat");
+const chat =
+    document.getElementById("chat");
 
 const input =
     document.getElementById("message");
@@ -9,36 +10,14 @@ const historyBox =
 const sendButton =
     document.getElementById("send");
 
-const imageCreator =
-    document.getElementById("imageCreator");
-
-const statsPanel =
-    document.getElementById("statsPanel");
-
-const imagePrompt =
-    document.getElementById("imagePrompt");
-
-const imageResult =
-    document.getElementById("imageResult");
+const toolsMenu =
+    document.getElementById("toolsMenu");
 
 let messages = [];
 
 
 // ========================================
-// INICIO
-// ========================================
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    registerVisit();
-
-    input.focus();
-
-});
-
-
-// ========================================
-// ENTER
+// ENTER PARA ENVIAR
 // ========================================
 
 input.addEventListener(
@@ -61,6 +40,26 @@ input.addEventListener(
 
 
 // ========================================
+// AJUSTAR TEXTAREA
+// ========================================
+
+input.addEventListener(
+    "input",
+    function() {
+
+        input.style.height = "auto";
+
+        input.style.height =
+            Math.min(
+                input.scrollHeight,
+                180
+            ) + "px";
+
+    }
+);
+
+
+// ========================================
 // ENVIAR MENSAJE
 // ========================================
 
@@ -68,6 +67,7 @@ async function sendMessage() {
 
     const text =
         input.value.trim();
+
 
     if (
         !text ||
@@ -78,12 +78,12 @@ async function sendMessage() {
 
     }
 
-    hidePanels();
 
     addMessage(
         text,
         "user"
     );
+
 
     messages.push({
 
@@ -93,19 +93,24 @@ async function sendMessage() {
 
     });
 
+
     addHistory(text);
+
 
     input.value = "";
 
-    autoResize();
+    input.style.height = "40px";
+
 
     const thinking =
         addMessage(
-            "MORVIX está pensando...",
+            "MORVIX AI está pensando...",
             "ai"
         );
 
+
     sendButton.disabled = true;
+
 
     try {
 
@@ -117,14 +122,18 @@ async function sendMessage() {
                     method: "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
                         JSON.stringify({
+
                             messages:
                                 messages
+
                         })
 
                 }
@@ -141,8 +150,10 @@ async function sendMessage() {
         if (!response.ok) {
 
             throw new Error(
+
                 data.error ||
-                "Error del servidor."
+                "Error del servidor"
+
             );
 
         }
@@ -158,23 +169,26 @@ async function sendMessage() {
 
             role: "assistant",
 
-            content: data.answer
+            content:
+                data.answer
 
         });
 
 
-    } catch(error) {
+    } catch (error) {
 
         thinking.remove();
 
+
         addMessage(
 
-            "❌ MORVIX no pudo conectarse con la IA.\n\n" +
+            "❌ MORVIX AI no pudo conectarse con la IA.\n\n" +
             error.message,
 
             "ai"
 
         );
+
 
         console.error(error);
 
@@ -189,7 +203,7 @@ async function sendMessage() {
 
 
 // ========================================
-// AGREGAR MENSAJE
+// CREAR MENSAJE
 // ========================================
 
 function addMessage(
@@ -200,12 +214,14 @@ function addMessage(
     const message =
         document.createElement("div");
 
+
     message.className =
         "message " + type;
 
 
     const icon =
         document.createElement("div");
+
 
     icon.className =
         "message-icon " +
@@ -225,12 +241,13 @@ function addMessage(
     const content =
         document.createElement("div");
 
+
     content.className =
         "message-content";
 
 
-    content.innerHTML =
-        formatText(text);
+    content.textContent =
+        text;
 
 
     message.appendChild(icon);
@@ -250,89 +267,6 @@ function addMessage(
 
 
 // ========================================
-// FORMATO DE RESPUESTAS
-// ========================================
-
-function formatText(text) {
-
-    let safe =
-        escapeHTML(text);
-
-
-    safe =
-        safe.replace(
-            /```([\s\S]*?)```/g,
-            '<pre><code>$1</code></pre>'
-        );
-
-
-    safe =
-        safe.replace(
-            /\*\*(.*?)\*\*/g,
-            "<strong>$1</strong>"
-        );
-
-
-    safe =
-        safe.replace(
-            /\*(.*?)\*/g,
-            "<em>$1</em>"
-        );
-
-
-    safe =
-        safe.replace(
-            /`([^`]+)`/g,
-            "<code>$1</code>"
-        );
-
-
-    safe =
-        safe.replace(
-            /^### (.*)$/gm,
-            "<h4>$1</h4>"
-        );
-
-
-    safe =
-        safe.replace(
-            /^## (.*)$/gm,
-            "<h3>$1</h3>"
-        );
-
-
-    safe =
-        safe.replace(
-            /^# (.*)$/gm,
-            "<h2>$1</h2>"
-        );
-
-
-    safe =
-        safe.replace(
-            /\n/g,
-            "<br>"
-        );
-
-
-    return safe;
-
-}
-
-
-function escapeHTML(text) {
-
-    const div =
-        document.createElement("div");
-
-    div.textContent = text;
-
-    return div.innerHTML;
-
-}
-
-
-// ========================================
 // HISTORIAL
 // ========================================
 
@@ -341,21 +275,13 @@ function addHistory(text) {
     const item =
         document.createElement("div");
 
+
     item.className =
         "history-item";
 
+
     item.textContent =
         text;
-
-    item.onclick =
-        () => {
-
-            input.value =
-                text;
-
-            input.focus();
-
-        };
 
 
     historyBox.prepend(item);
@@ -368,8 +294,6 @@ function addHistory(text) {
 // ========================================
 
 function suggest(text) {
-
-    hidePanels();
 
     input.value = text;
 
@@ -386,30 +310,60 @@ function newChat() {
 
     messages = [];
 
+
     chat.innerHTML = `
 
         <div class="welcome">
 
-            <div class="hero-logo">
+            <div class="big-logo">
                 ✦
             </div>
 
             <h1>
-                ¿Qué quieres crear hoy?
+                ¿En qué puedo ayudarte?
             </h1>
 
             <p>
-                Habla, aprende, programa y crea
-                con <strong>MORVIX AI</strong>.
+                Pregunta, aprende, crea y descubre
+                con MORVIX AI.
             </p>
+
+            <div class="suggestions">
+
+                <button
+                    onclick="suggest('Explícame qué es la inteligencia artificial')"
+                >
+                    🧠 Explícame algo
+                </button>
+
+                <button
+                    onclick="suggest('Dame ideas para ganar dinero por internet')"
+                >
+                    💰 Dame ideas
+                </button>
+
+                <button
+                    onclick="suggest('Ayúdame a crear una página web')"
+                >
+                    💻 Crear una web
+                </button>
+
+                <button
+                    onclick="suggest('Ayúdame con una tarea escolar')"
+                >
+                    📚 Ayúdame a estudiar
+                </button>
+
+            </div>
 
         </div>
 
     `;
 
-    hidePanels();
 
     input.value = "";
+
+    input.style.height = "40px";
 
     input.focus();
 
@@ -417,7 +371,7 @@ function newChat() {
 
 
 // ========================================
-// LIMPIAR
+// LIMPIAR CHAT
 // ========================================
 
 function clearChat() {
@@ -428,39 +382,43 @@ function clearChat() {
 
 
 // ========================================
-// TEMA
+// CAMBIAR TEMA
 // ========================================
 
 function toggleTheme() {
 
     document.body.classList.toggle(
-        "light"
+        "dark"
     );
 
+
     localStorage.setItem(
-        "morvixTheme",
+
+        "morvix-theme",
+
         document.body.classList.contains(
-            "light"
+            "dark"
         )
-            ? "light"
-            : "dark"
+            ? "dark"
+            : "light"
+
     );
 
 }
 
 
 // ========================================
-// CARGAR TEMA
+// RECUPERAR TEMA
 // ========================================
 
 if (
     localStorage.getItem(
-        "morvixTheme"
-    ) === "light"
+        "morvix-theme"
+    ) === "dark"
 ) {
 
     document.body.classList.add(
-        "light"
+        "dark"
     );
 
 }
@@ -473,314 +431,10 @@ if (
 function toggleSidebar() {
 
     document
-        .getElementById("sidebar")
-        .classList.toggle("open");
-
-}
-
-
-// ========================================
-// FOCUS CHAT
-// ========================================
-
-function focusChat() {
-
-    hidePanels();
-
-    input.focus();
-
-}
-
-
-// ========================================
-// INICIO
-// ========================================
-
-function showHome() {
-
-    hidePanels();
-
-    chat.classList.remove(
-        "hidden"
-    );
-
-}
-
-
-// ========================================
-// OCULTAR PANELES
-// ========================================
-
-function hidePanels() {
-
-    chat.classList.remove(
-        "hidden"
-    );
-
-    imageCreator.classList.add(
-        "hidden"
-    );
-
-    statsPanel.classList.add(
-        "hidden"
-    );
-
-}
-
-
-// ========================================
-// CREADOR DE IMÁGENES
-// ========================================
-
-function showImageCreator() {
-
-    chat.classList.add(
-        "hidden"
-    );
-
-    statsPanel.classList.add(
-        "hidden"
-    );
-
-    imageCreator.classList.remove(
-        "hidden"
-    );
-
-    imagePrompt.focus();
-
-}
-
-
-function setImageStyle(style) {
-
-    const current =
-        imagePrompt.value.trim();
-
-    imagePrompt.value =
-        current
-            ? `${current}, ${style}`
-            : style;
-
-    imagePrompt.focus();
-
-}
-
-
-// ========================================
-// GENERAR IMAGEN
-// ========================================
-
-async function generateImage() {
-
-    const prompt =
-        imagePrompt.value.trim();
-
-    const button =
-        document.getElementById(
-            "generateImage"
+        .querySelector(".sidebar")
+        .classList.toggle(
+            "open"
         );
-
-
-    if (!prompt) {
-
-        alert(
-            "Escribe una descripción para la imagen."
-        );
-
-        return;
-
-    }
-
-
-    button.disabled = true;
-
-    button.textContent =
-        "✨ MORVIX está creando...";
-
-
-    imageResult.innerHTML = `
-
-        <div style="
-            text-align:center;
-            padding:30px;
-            color:#999;
-        ">
-
-            🎨 Creando tu imagen...
-
-            <br><br>
-
-            <span>
-                Esto puede tardar unos segundos.
-            </span>
-
-        </div>
-
-    `;
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/image",
-                {
-
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify({
-                            prompt:
-                                prompt
-                        })
-
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                "No se pudo crear la imagen."
-            );
-
-        }
-
-
-        imageResult.innerHTML = `
-
-            <img
-                src="${data.image}"
-                alt="Imagen generada por MORVIX AI"
-            >
-
-        `;
-
-
-    } catch(error) {
-
-        imageResult.innerHTML = `
-
-            <div style="
-                padding:20px;
-                color:#f87171;
-            ">
-
-                ❌ ${escapeHTML(
-                    error.message
-                )}
-
-            </div>
-
-        `;
-
-        console.error(error);
-
-    }
-
-
-    button.disabled = false;
-
-    button.textContent =
-        "✨ Crear imagen";
-
-}
-
-
-// ========================================
-// ESTADÍSTICAS
-// ========================================
-
-async function registerVisit() {
-
-    try {
-
-        await fetch(
-            "/api/visit",
-            {
-                method: "POST"
-            }
-        );
-
-    } catch(error) {
-
-        console.error(
-            "No se pudo registrar visita.",
-            error
-        );
-
-    }
-
-}
-
-
-async function showStats() {
-
-    hidePanels();
-
-    chat.classList.add(
-        "hidden"
-    );
-
-    statsPanel.classList.remove(
-        "hidden"
-    );
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/stats"
-            );
-
-
-        const data =
-            await response.json();
-
-
-        document.getElementById(
-            "statVisits"
-        ).textContent =
-            data.visits;
-
-
-        document.getElementById(
-            "statMessages"
-        ).textContent =
-            data.messages;
-
-
-        document.getElementById(
-            "statImages"
-        ).textContent =
-            data.imageGenerations;
-
-
-        document.getElementById(
-            "statActive"
-        ).textContent =
-            data.activeUsers;
-
-
-    } catch(error) {
-
-        console.error(
-            "Error obteniendo estadísticas:",
-            error
-        );
-
-    }
 
 }
 
@@ -795,17 +449,12 @@ function showAbout() {
 
         "✦ MORVIX AI\n\n" +
 
-        "Tu inteligencia. Sin límites.\n\n" +
+        "Tu asistente inteligente.\n\n" +
 
-        "Chat inteligente\n" +
+        "Chat • Creatividad • Programación • " +
+        "Imágenes\n\n" +
 
-        "Generación de imágenes\n" +
-
-        "Programación\n" +
-
-        "Modo estudio\n\n" +
-
-        "Versión 2.0"
+        "Versión 2.1"
 
     );
 
@@ -813,24 +462,378 @@ function showAbout() {
 
 
 // ========================================
-// AUTO RESIZE
+// BOTÓN +
 // ========================================
 
-input.addEventListener(
-    "input",
-    autoResize
+function toggleTools() {
+
+    toolsMenu.classList.toggle(
+        "show"
+    );
+
+}
+
+
+// ========================================
+// CREAR IMAGEN
+// ========================================
+
+function createImageTool() {
+
+    toolsMenu.classList.remove(
+        "show"
+    );
+
+
+    input.value =
+        "Crea una imagen de ";
+
+
+    input.focus();
+
+}
+
+
+// ========================================
+// GENERAR IMAGEN REAL
+// ========================================
+
+async function generateImage(
+    prompt
+) {
+
+    const thinking =
+        addMessage(
+            "🎨 MORVIX está creando tu imagen...",
+            "ai"
+        );
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/image",
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            prompt:
+                                prompt
+
+                        })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        thinking.remove();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+
+                data.error ||
+                "No se pudo crear la imagen."
+
+            );
+
+        }
+
+
+        const message =
+            document.createElement(
+                "div"
+            );
+
+
+        message.className =
+            "message ai";
+
+
+        const icon =
+            document.createElement(
+                "div"
+            );
+
+
+        icon.className =
+            "message-icon ai-icon";
+
+
+        icon.textContent =
+            "✦";
+
+
+        const content =
+            document.createElement(
+                "div"
+            );
+
+
+        content.className =
+            "message-content";
+
+
+        const title =
+            document.createElement(
+                "div"
+            );
+
+
+        title.textContent =
+            "🎨 Imagen creada por MORVIX AI";
+
+
+        title.style.fontWeight =
+            "700";
+
+
+        title.style.marginBottom =
+            "10px";
+
+
+        const image =
+            document.createElement(
+                "img"
+            );
+
+
+        image.src =
+            data.image;
+
+
+        image.alt =
+            prompt;
+
+
+        image.style.width =
+            "100%";
+
+
+        image.style.maxWidth =
+            "700px";
+
+
+        image.style.borderRadius =
+            "16px";
+
+
+        image.style.display =
+            "block";
+
+
+        content.appendChild(title);
+
+        content.appendChild(image);
+
+        message.appendChild(icon);
+
+        message.appendChild(content);
+
+        chat.appendChild(message);
+
+
+        chat.scrollTop =
+            chat.scrollHeight;
+
+
+    } catch (error) {
+
+        thinking.remove();
+
+
+        addMessage(
+
+            "❌ No pude crear la imagen.\n\n" +
+            error.message,
+
+            "ai"
+
+        );
+
+
+        console.error(error);
+
+    }
+
+}
+
+
+// ========================================
+// ARCHIVOS
+// ========================================
+
+function uploadFile() {
+
+    toolsMenu.classList.remove(
+        "show"
+    );
+
+
+    document
+        .getElementById("fileInput")
+        .click();
+
+}
+
+
+document
+    .getElementById("fileInput")
+    .addEventListener(
+        "change",
+        function() {
+
+            const file =
+                this.files[0];
+
+
+            if (!file) {
+                return;
+            }
+
+
+            addMessage(
+
+                `📎 Archivo seleccionado: ${file.name}`,
+
+                "user"
+
+            );
+
+        }
+    );
+
+
+// ========================================
+// IMAGEN
+// ========================================
+
+function uploadImage() {
+
+    toolsMenu.classList.remove(
+        "show"
+    );
+
+
+    document
+        .getElementById("imageInput")
+        .click();
+
+}
+
+
+document
+    .getElementById("imageInput")
+    .addEventListener(
+        "change",
+        function() {
+
+            const file =
+                this.files[0];
+
+
+            if (!file) {
+                return;
+            }
+
+
+            addMessage(
+
+                `🖼️ Imagen seleccionada: ${file.name}`,
+
+                "user"
+
+            );
+
+        }
+    );
+
+
+// ========================================
+// BÚSQUEDA WEB
+// ========================================
+
+function webSearchTool() {
+
+    toolsMenu.classList.remove(
+        "show"
+    );
+
+
+    alert(
+        "🌐 La búsqueda web se añadirá en una próxima versión."
+    );
+
+}
+
+
+// ========================================
+// CERRAR MENÚ +
+// ========================================
+
+document.addEventListener(
+
+    "click",
+
+    function(event) {
+
+        const button =
+            document.getElementById(
+                "plusButton"
+            );
+
+
+        if (
+
+            toolsMenu &&
+            button &&
+
+            !toolsMenu.contains(
+                event.target
+            ) &&
+
+            !button.contains(
+                event.target
+            )
+
+        ) {
+
+            toolsMenu.classList.remove(
+                "show"
+            );
+
+        }
+
+    }
+
 );
 
 
-function autoResize() {
+// ========================================
+// REGISTRAR VISITA
+// ========================================
 
-    input.style.height =
-        "auto";
-
-    input.style.height =
-        Math.min(
-            input.scrollHeight,
-            150
-        ) + "px";
-
-}
+fetch(
+    "/api/visit",
+    {
+        method: "POST"
+    }
+).catch(
+    () => {}
+);
