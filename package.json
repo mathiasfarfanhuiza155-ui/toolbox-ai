@@ -1,15 +1,15 @@
 {
   "name": "morvix-ai",
-  "version": "2.0.0",
-  "description": "MORVIX AI - Plataforma de inteligencia artificial",
+  "version": "2.1.0",
+  "description": "MORVIX AI",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
-    "express": "^5.1.0"
-  },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
   }
 }
