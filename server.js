@@ -1,165 +1,256 @@
 const express = require("express");
 const path = require("path");
+const multer = require("multer");
 
 const app = express();
-
-app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Archivos de la página
-app.use(express.static(path.join(__dirname, "public")));
+const MODEL = "gemini-3.5-flash-lite";
 
-// Página principal
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024
+  }
+});
+
+app.use(express.json({ limit: "25mb" }));
+
+app.use(
+  express.static(
+    path.join(__dirname, "public")
+  )
+);
+
 app.get("/", (req, res) => {
   res.sendFile(
-    path.join(__dirname, "public", "index.html")
+    path.join(
+      __dirname,
+      "public",
+      "index.html"
+    )
   );
 });
 
-// API de MORVIX AI
-app.post("/api/chat", async (req, res) => {
 
-  try {
+app.post(
+  "/api/chat",
+  upload.single("file"),
+  async (req, res) => {
 
-    if (!GEMINI_API_KEY) {
+    try {
 
-      return res.status(500).json({
-        error: "No está configurada GEMINI_API_KEY en Render."
-      });
-
-    }
-
-    const messages = req.body.messages || [];
-
-    if (!messages.length) {
-
-      return res.status(400).json({
-        error: "No se recibió ningún mensaje."
-      });
-
-    }
-
-    const contents = messages.map((message) => ({
-
-      role:
-        message.role === "assistant"
-          ? "model"
-          : "user",
-
-      parts: [
-        {
-          text: message.content
-        }
-      ]
-
-    }));
+      if (!GEMINI_API_KEY) {
+        return res.status(500).json({
+          error:
+            "No está configurada GEMINI_API_KEY en Render."
+        });
+      }
 
 
-    const response = await fetch(
+      const messages = JSON.parse(
+        req.body.messages || "[]"
+      );
 
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" +
-      GEMINI_API_KEY,
 
-      {
+      if (!messages.length) {
+        return res.status(400).json({
+          error:
+            "No se recibió ningún mensaje."
+        });
+      }
 
-        method: "POST",
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+      const contents = [];
 
-        body: JSON.stringify({
 
-          systemInstruction: {
+      for (const message of messages) {
 
-            parts: [
+        const role =
+          message.role === "assistant"
+            ? "model"
+            : "user";
 
-              {
-                text:
-                  "Eres MORVIX AI, un asistente de inteligencia artificial inteligente, amable, útil y claro. Responde principalmente en español. Ayuda con estudios, programación, creatividad, preguntas y tareas. Explica las cosas de manera sencilla y no inventes información."
-              }
 
-            ]
-
-          },
-
-          contents: contents
-
-        })
+        contents.push({
+          role: role,
+          parts: [
+            {
+              text: message.content
+            }
+          ]
+        });
 
       }
 
-    );
+
+      // Si el usuario subió un archivo,
+      // lo agregamos al último mensaje.
+      if (req.file) {
+
+        const lastMessage =
+          contents[contents.length - 1];
+
+        const base64 =
+          req.file.buffer.toString("base64");
 
 
-    const data = await response.json();
+        lastMessage.parts.push({
+
+          inlineData: {
+            mimeType:
+              req.file.mimetype ||
+              "application/octet-stream",
+
+            data: base64
+          }
+
+        });
+
+      }
 
 
-    if (!response.ok) {
+      const response = await fetch(
 
-      console.error(
-        "Error de Gemini:",
-        data
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+
+            systemInstruction: {
+
+              parts: [
+
+                {
+                  text: `
+Eres MORVIX AI.
+
+Tu personalidad:
+- Inteligente
+- Amable
+- Moderna
+- Clara
+- Directa
+- Creativa
+- Paciente
+
+Responde principalmente en español.
+
+Ayuda con:
+- Estudios
+- Matemáticas
+- Ciencia
+- Programación
+- HTML
+- CSS
+- JavaScript
+- Python
+- Ideas
+- Escritura
+- Resúmenes
+- Explicaciones
+- Análisis de imágenes
+- Análisis de documentos
+
+Cuando escribas código:
+- Usa bloques de código Markdown.
+- Indica el lenguaje.
+- Explica brevemente qué hace.
+
+Cuando el usuario mande una imagen o documento:
+- Analízalo cuidadosamente.
+- Si contiene texto, intenta leerlo.
+- Si no puedes determinar algo, dilo claramente.
+- No inventes información.
+
+No reveles claves API ni información interna del servidor.
+
+Tu nombre es MORVIX AI.
+                  `
+                }
+
+              ]
+
+            },
+
+            contents: contents
+
+          })
+
+        }
+
       );
 
-      return res.status(
-        response.status
-      ).json({
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        console.error(
+          "Error de Gemini:",
+          data
+        );
+
+
+        return res.status(
+          response.status
+        ).json({
+
+          error:
+            data.error?.message ||
+            "Error de Gemini."
+
+        });
+
+      }
+
+
+      const answer =
+        data
+          .candidates?.[0]
+          ?.content?.parts
+          ?.filter(part => part.text)
+          ?.map(part => part.text)
+          ?.join("\n") ||
+        "No recibí una respuesta.";
+
+
+      res.json({
+        answer: answer
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "ERROR DEL SERVIDOR:",
+        error
+      );
+
+
+      res.status(500).json({
 
         error:
-          data.error?.message ||
-          "Error al conectar con Gemini."
+          "Ocurrió un error interno en MORVIX AI."
 
       });
 
     }
-
-
-    const answer =
-      data
-        .candidates?.[0]
-        ?.content?.parts?.[0]
-        ?.text;
-
-
-    if (!answer) {
-
-      return res.status(500).json({
-
-        error:
-          "Gemini no devolvió ninguna respuesta."
-
-      });
-
-    }
-
-
-    res.json({
-
-      answer: answer
-
-    });
-
-
-  } catch (error) {
-
-    console.error(
-      "Error del servidor:",
-      error
-    );
-
-    res.status(500).json({
-
-      error:
-        "Error interno del servidor."
-
-    });
 
   }
-
-});
+);
 
 
 app.listen(
