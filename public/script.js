@@ -17,7 +17,7 @@ let messages = [];
 
 
 // ========================================
-// ENTER PARA ENVIAR
+// ENTER
 // ========================================
 
 input.addEventListener(
@@ -40,7 +40,7 @@ input.addEventListener(
 
 
 // ========================================
-// AJUSTAR TEXTAREA
+// AUTO RESIZE
 // ========================================
 
 input.addEventListener(
@@ -60,7 +60,7 @@ input.addEventListener(
 
 
 // ========================================
-// ENVIAR MENSAJE
+// ENVIAR
 // ========================================
 
 async function sendMessage() {
@@ -68,14 +68,11 @@ async function sendMessage() {
     const text =
         input.value.trim();
 
-
     if (
         !text ||
         sendButton.disabled
     ) {
-
         return;
-
     }
 
 
@@ -104,7 +101,7 @@ async function sendMessage() {
 
     const thinking =
         addMessage(
-            "MORVIX AI está pensando...",
+            "MORVIX está pensando...",
             "ai"
         );
 
@@ -118,24 +115,18 @@ async function sendMessage() {
             await fetch(
                 "/api/chat",
                 {
-
                     method: "POST",
 
                     headers: {
-
                         "Content-Type":
                             "application/json"
-
                     },
 
                     body:
                         JSON.stringify({
-
                             messages:
                                 messages
-
                         })
-
                 }
             );
 
@@ -150,10 +141,8 @@ async function sendMessage() {
         if (!response.ok) {
 
             throw new Error(
-
                 data.error ||
                 "Error del servidor"
-
             );
 
         }
@@ -181,12 +170,9 @@ async function sendMessage() {
 
 
         addMessage(
-
-            "❌ MORVIX AI no pudo conectarse con la IA.\n\n" +
+            "❌ MORVIX no pudo conectarse con la IA.\n\n" +
             error.message,
-
             "ai"
-
         );
 
 
@@ -206,14 +192,10 @@ async function sendMessage() {
 // CREAR MENSAJE
 // ========================================
 
-function addMessage(
-    text,
-    type
-) {
+function addMessage(text, type) {
 
     const message =
         document.createElement("div");
-
 
     message.className =
         "message " + type;
@@ -222,14 +204,8 @@ function addMessage(
     const icon =
         document.createElement("div");
 
-
     icon.className =
-        "message-icon " +
-        (
-            type === "user"
-                ? "user-icon"
-                : "ai-icon"
-        );
+        "message-icon";
 
 
     icon.textContent =
@@ -240,7 +216,6 @@ function addMessage(
 
     const content =
         document.createElement("div");
-
 
     content.className =
         "message-content";
@@ -275,10 +250,8 @@ function addHistory(text) {
     const item =
         document.createElement("div");
 
-
     item.className =
         "history-item";
-
 
     item.textContent =
         text;
@@ -299,6 +272,14 @@ function suggest(text) {
 
     input.focus();
 
+    input.style.height = "auto";
+
+    input.style.height =
+        Math.min(
+            input.scrollHeight,
+            180
+        ) + "px";
+
 }
 
 
@@ -315,8 +296,8 @@ function newChat() {
 
         <div class="welcome">
 
-            <div class="big-logo">
-                ✦
+            <div class="welcome-logo">
+                <span>✦</span>
             </div>
 
             <h1>
@@ -324,40 +305,75 @@ function newChat() {
             </h1>
 
             <p>
-                Pregunta, aprende, crea y descubre
-                con MORVIX AI.
+                Pregunta, crea, aprende y descubre
+                con <strong>MORVIX AI</strong>.
             </p>
 
             <div class="suggestions">
 
-                <button
-                    onclick="suggest('Explícame qué es la inteligencia artificial')"
-                >
-                    🧠 Explícame algo
+                <button onclick="suggest(
+                    'Explícame qué es la inteligencia artificial de manera sencilla'
+                )">
+
+                    <div class="suggest-icon blue">
+                        ✦
+                    </div>
+
+                    <div>
+                        <strong>Explícame algo</strong>
+                        <small>Aprende un concepto nuevo</small>
+                    </div>
+
                 </button>
 
-                <button
-                    onclick="suggest('Dame ideas para ganar dinero por internet')"
-                >
-                    💰 Dame ideas
+                <button onclick="suggest(
+                    'Dame ideas creativas para ganar dinero por internet'
+                )">
+
+                    <div class="suggest-icon green">
+                        $
+                    </div>
+
+                    <div>
+                        <strong>Dame ideas</strong>
+                        <small>Encuentra nuevas posibilidades</small>
+                    </div>
+
                 </button>
 
-                <button
-                    onclick="suggest('Ayúdame a crear una página web')"
-                >
-                    💻 Crear una web
+                <button onclick="suggest(
+                    'Ayúdame a crear una página web moderna'
+                )">
+
+                    <div class="suggest-icon purple">
+                        &lt;/&gt;
+                    </div>
+
+                    <div>
+                        <strong>Crear una web</strong>
+                        <small>Programa con MORVIX</small>
+                    </div>
+
                 </button>
 
-                <button
-                    onclick="suggest('Ayúdame con una tarea escolar')"
-                >
-                    📚 Ayúdame a estudiar
+                <button onclick="suggest(
+                    'Ayúdame con una tarea escolar'
+                )">
+
+                    <div class="suggest-icon orange">
+                        ✎
+                    </div>
+
+                    <div>
+                        <strong>Ayúdame a estudiar</strong>
+                        <small>Aprende paso a paso</small>
+                    </div>
+
                 </button>
 
             </div>
 
         </div>
-
     `;
 
 
@@ -371,7 +387,7 @@ function newChat() {
 
 
 // ========================================
-// LIMPIAR CHAT
+// LIMPIAR
 // ========================================
 
 function clearChat() {
@@ -382,7 +398,7 @@ function clearChat() {
 
 
 // ========================================
-// CAMBIAR TEMA
+// TEMA
 // ========================================
 
 function toggleTheme() {
@@ -393,23 +409,14 @@ function toggleTheme() {
 
 
     localStorage.setItem(
-
         "morvix-theme",
-
-        document.body.classList.contains(
-            "dark"
-        )
+        document.body.classList.contains("dark")
             ? "dark"
             : "light"
-
     );
 
 }
 
-
-// ========================================
-// RECUPERAR TEMA
-// ========================================
 
 if (
     localStorage.getItem(
@@ -431,10 +438,8 @@ if (
 function toggleSidebar() {
 
     document
-        .querySelector(".sidebar")
-        .classList.toggle(
-            "open"
-        );
+        .getElementById("sidebar")
+        .classList.toggle("open");
 
 }
 
@@ -446,17 +451,57 @@ function toggleSidebar() {
 function showAbout() {
 
     alert(
-
         "✦ MORVIX AI\n\n" +
-
-        "Tu asistente inteligente.\n\n" +
-
-        "Chat • Creatividad • Programación • " +
-        "Imágenes\n\n" +
-
+        "Asistente de inteligencia artificial.\n\n" +
         "Versión 2.1"
-
     );
+
+}
+
+
+// ========================================
+// ESTADÍSTICAS
+// ========================================
+
+async function showStats() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/stats"
+            );
+
+
+        const data =
+            await response.json();
+
+
+        alert(
+
+            "📊 ESTADÍSTICAS DE MORVIX\n\n" +
+
+            "Visitas: " +
+            data.visits +
+            "\n\n" +
+
+            "Mensajes: " +
+            data.messages +
+            "\n\n" +
+
+            "Imágenes generadas: " +
+            data.imageGenerations
+
+        );
+
+
+    } catch {
+
+        alert(
+            "No se pudieron cargar las estadísticas."
+        );
+
+    }
 
 }
 
@@ -495,188 +540,7 @@ function createImageTool() {
 
 
 // ========================================
-// GENERAR IMAGEN REAL
-// ========================================
-
-async function generateImage(
-    prompt
-) {
-
-    const thinking =
-        addMessage(
-            "🎨 MORVIX está creando tu imagen...",
-            "ai"
-        );
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/image",
-                {
-
-                    method: "POST",
-
-                    headers: {
-
-                        "Content-Type":
-                            "application/json"
-
-                    },
-
-                    body:
-                        JSON.stringify({
-
-                            prompt:
-                                prompt
-
-                        })
-
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        thinking.remove();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-
-                data.error ||
-                "No se pudo crear la imagen."
-
-            );
-
-        }
-
-
-        const message =
-            document.createElement(
-                "div"
-            );
-
-
-        message.className =
-            "message ai";
-
-
-        const icon =
-            document.createElement(
-                "div"
-            );
-
-
-        icon.className =
-            "message-icon ai-icon";
-
-
-        icon.textContent =
-            "✦";
-
-
-        const content =
-            document.createElement(
-                "div"
-            );
-
-
-        content.className =
-            "message-content";
-
-
-        const title =
-            document.createElement(
-                "div"
-            );
-
-
-        title.textContent =
-            "🎨 Imagen creada por MORVIX AI";
-
-
-        title.style.fontWeight =
-            "700";
-
-
-        title.style.marginBottom =
-            "10px";
-
-
-        const image =
-            document.createElement(
-                "img"
-            );
-
-
-        image.src =
-            data.image;
-
-
-        image.alt =
-            prompt;
-
-
-        image.style.width =
-            "100%";
-
-
-        image.style.maxWidth =
-            "700px";
-
-
-        image.style.borderRadius =
-            "16px";
-
-
-        image.style.display =
-            "block";
-
-
-        content.appendChild(title);
-
-        content.appendChild(image);
-
-        message.appendChild(icon);
-
-        message.appendChild(content);
-
-        chat.appendChild(message);
-
-
-        chat.scrollTop =
-            chat.scrollHeight;
-
-
-    } catch (error) {
-
-        thinking.remove();
-
-
-        addMessage(
-
-            "❌ No pude crear la imagen.\n\n" +
-            error.message,
-
-            "ai"
-
-        );
-
-
-        console.error(error);
-
-    }
-
-}
-
-
-// ========================================
-// ARCHIVOS
+// SUBIR ARCHIVO
 // ========================================
 
 function uploadFile() {
@@ -702,18 +566,13 @@ document
             const file =
                 this.files[0];
 
-
-            if (!file) {
-                return;
-            }
+            if (!file) return;
 
 
             addMessage(
-
-                `📎 Archivo seleccionado: ${file.name}`,
-
+                "📎 Archivo seleccionado: " +
+                file.name,
                 "user"
-
             );
 
         }
@@ -747,18 +606,13 @@ document
             const file =
                 this.files[0];
 
-
-            if (!file) {
-                return;
-            }
+            if (!file) return;
 
 
             addMessage(
-
-                `🖼️ Imagen seleccionada: ${file.name}`,
-
+                "🖼️ Imagen seleccionada: " +
+                file.name,
                 "user"
-
             );
 
         }
@@ -766,7 +620,7 @@ document
 
 
 // ========================================
-// BÚSQUEDA WEB
+// WEB
 // ========================================
 
 function webSearchTool() {
@@ -777,41 +631,35 @@ function webSearchTool() {
 
 
     alert(
-        "🌐 La búsqueda web se añadirá en una próxima versión."
+        "🌐 La búsqueda web se añadirá próximamente."
     );
 
 }
 
 
 // ========================================
-// CERRAR MENÚ +
+// CERRAR MENÚ
 // ========================================
 
 document.addEventListener(
-
     "click",
-
     function(event) {
 
-        const button =
+        const plus =
             document.getElementById(
                 "plusButton"
             );
 
 
         if (
-
             toolsMenu &&
-            button &&
-
+            plus &&
             !toolsMenu.contains(
                 event.target
             ) &&
-
-            !button.contains(
+            !plus.contains(
                 event.target
             )
-
         ) {
 
             toolsMenu.classList.remove(
@@ -821,12 +669,11 @@ document.addEventListener(
         }
 
     }
-
 );
 
 
 // ========================================
-// REGISTRAR VISITA
+// VISITA
 // ========================================
 
 fetch(
