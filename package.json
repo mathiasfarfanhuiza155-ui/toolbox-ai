@@ -1,8 +1,9 @@
 {
   "name": "morvix-ai",
   "version": "3.0.0",
-  "description": "MORVIX AI - asistente de inteligencia artificial",
+  "description": "MORVIX AI - Asistente de inteligencia artificial",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
@@ -10,9 +11,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "express": "^5.1.0",
-    "multer": "^2.0.2",
-    "marked": "^16.1.2"
+    "multer": "^2.0.2"
   }
 }
