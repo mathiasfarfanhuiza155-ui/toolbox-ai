@@ -1,99 +1,283 @@
-const express = require("express");
+const chat = document.getElementById("chat");
+const input = document.getElementById("message");
+const historyBox = document.getElementById("history");
+const sendButton = document.getElementById("send");
 
-const app = express();
+let messages = [];
 
-app.use(express.json());
+// Enter para enviar
+input.addEventListener("keydown", function (event) {
 
-app.use(express.static(__dirname));
+  if (event.key === "Enter" && !event.shiftKey) {
 
-const PORT = process.env.PORT || 10000;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    event.preventDefault();
 
-app.post("/api/chat", async (req, res) => {
+    sendMessage();
+
+  }
+
+});
+
+
+// ENVIAR MENSAJE
+async function sendMessage() {
+
+  const text = input.value.trim();
+
+  if (!text || sendButton.disabled) {
+    return;
+  }
+
+  addMessage(text, "user");
+
+  messages.push({
+    role: "user",
+    content: text
+  });
+
+  addHistory(text);
+
+  input.value = "";
+
+  const thinking = addMessage(
+    "MORVIX AI está pensando...",
+    "ai"
+  );
+
+  sendButton.disabled = true;
+
   try {
 
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({
-        error: "No está configurada GEMINI_API_KEY en Render."
-      });
-    }
+    const response = await fetch("/api/chat", {
 
-    const messages = req.body.messages || [];
+      method: "POST",
 
-    if (!messages.length) {
-      return res.status(400).json({
-        error: "No se recibió ningún mensaje."
-      });
-    }
+      headers: {
+        "Content-Type": "application/json"
+      },
 
-    const contents = messages.map(message => ({
-      role: message.role === "assistant" ? "model" : "user",
-      parts: [
-        {
-          text: message.content
-        }
-      ]
-    }));
+      body: JSON.stringify({
+        messages: messages
+      })
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-      GEMINI_API_KEY,
-      {
-        method: "POST",
+    });
 
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [
-              {
-                text: "Eres MORVIX AI, un asistente inteligente, amable y útil. Responde principalmente en español. Ayuda con estudios, programación, creatividad, preguntas y tareas. Sé claro y no inventes información."
-              }
-            ]
-          },
-
-          contents: contents
-        })
-      }
-    );
 
     const data = await response.json();
 
+    thinking.remove();
+
+
     if (!response.ok) {
 
-      console.error("Error de Gemini:", data);
+      throw new Error(
+        data.error || "Error del servidor"
+      );
 
-      return res.status(response.status).json({
-        error: data.error?.message || "Error al conectar con Gemini."
-      });
     }
 
-    const answer =
-      data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!answer) {
-      return res.status(500).json({
-        error: "Gemini no devolvió ninguna respuesta."
-      });
-    }
+    addMessage(
+      data.answer,
+      "ai"
+    );
 
-    res.json({
-      answer: answer
+
+    messages.push({
+
+      role: "assistant",
+
+      content: data.answer
+
     });
+
 
   } catch (error) {
 
-    console.error("Error del servidor:", error);
+    thinking.remove();
 
-    res.status(500).json({
-      error: "Error interno del servidor."
-    });
+    addMessage(
+      "❌ MORVIX AI no pudo conectarse con la IA.",
+      "ai"
+    );
+
+    console.error("Error:", error);
 
   }
-});
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`MORVIX AI funcionando en el puerto ${PORT}`);
-});
+
+  sendButton.disabled = false;
+
+  input.focus();
+
+}
+
+
+// CREAR MENSAJE
+function addMessage(text, type) {
+
+  const message =
+    document.createElement("div");
+
+  message.className =
+    "message " + type;
+
+
+  const icon =
+    document.createElement("div");
+
+  icon.className =
+    "message-icon " +
+    (
+      type === "user"
+        ? "user-icon"
+        : "ai-icon"
+    );
+
+
+  icon.textContent =
+    type === "user"
+      ? "M"
+      : "✦";
+
+
+  const content =
+    document.createElement("div");
+
+  content.className =
+    "message-content";
+
+
+  content.textContent =
+    text;
+
+
+  message.appendChild(icon);
+
+  message.appendChild(content);
+
+  chat.appendChild(message);
+
+
+  chat.scrollTop =
+    chat.scrollHeight;
+
+
+  return message;
+
+}
+
+
+// HISTORIAL
+function addHistory(text) {
+
+  const item =
+    document.createElement("div");
+
+  item.className =
+    "history-item";
+
+  item.textContent =
+    text;
+
+  historyBox.prepend(item);
+
+}
+
+
+// SUGERENCIAS
+function suggest(text) {
+
+  input.value = text;
+
+  input.focus();
+
+}
+
+
+// NUEVO CHAT
+function newChat() {
+
+  messages = [];
+
+  chat.innerHTML = `
+
+    <div class="welcome">
+
+      <div class="big-logo">
+        ✦
+      </div>
+
+      <h1>
+        ¿En qué puedo ayudarte?
+      </h1>
+
+      <p>
+        Pregunta, aprende, crea y descubre
+        con MORVIX AI.
+      </p>
+
+      <div class="suggestions">
+
+        <button onclick="suggest('Explícame qué es la inteligencia artificial')">
+          🧠 Explícame algo
+        </button>
+
+        <button onclick="suggest('Dame ideas para ganar dinero por internet')">
+          💰 Dame ideas
+        </button>
+
+        <button onclick="suggest('Ayúdame a crear una página web')">
+          💻 Crear una web
+        </button>
+
+        <button onclick="suggest('Ayúdame con una tarea escolar')">
+          📚 Ayúdame a estudiar
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+
+  input.focus();
+
+}
+
+
+// BORRAR CHAT
+function clearChat() {
+
+  newChat();
+
+}
+
+
+// CAMBIAR TEMA
+function toggleTheme() {
+
+  document.body.classList.toggle("dark");
+
+}
+
+
+// ABRIR SIDEBAR
+function toggleSidebar() {
+
+  document
+    .querySelector(".sidebar")
+    .classList.toggle("open");
+
+}
+
+
+// CONFIGURACIÓN
+function showAbout() {
+
+  alert(
+    "MORVIX AI\n\n" +
+    "Asistente de inteligencia artificial."
+  );
+
+}
