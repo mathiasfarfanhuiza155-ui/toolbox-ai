@@ -1,467 +1,1043 @@
-const express = require("express");
-const path = require("path");
-const multer = require("multer");
+const chat = document.getElementById("chat");
+const input = document.getElementById("message");
+const sendButton = document.getElementById("send");
+const historyBox = document.getElementById("history");
 
-const app = express();
+let messages = [];
 
-const PORT = process.env.PORT || 10000;
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-const TEXT_MODEL =
-  process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";
-
-const IMAGE_MODEL =
-  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
-
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  }
-});
-
-/* =========================
-   ARCHIVOS DE LA WEB
-========================= */
-
-app.use(express.static(path.join(__dirname, "public")));
-
-/* =========================
-   ESTADÍSTICAS
-========================= */
-
-let statistics = {
-  visitors: 0,
+let stats = {
   messages: 0,
   images: 0,
   files: 0
 };
 
-app.get("/api/stats", (req, res) => {
-  res.json(statistics);
-});
+/* =========================
+   INICIO
+========================= */
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    app: "MORVIX AI",
-    geminiConfigured: !!GEMINI_API_KEY,
-    textModel: TEXT_MODEL,
-    imageModel: IMAGE_MODEL
-  });
-});
+document.addEventListener("DOMContentLoaded", () => {
 
-app.get("/api/models", async (req, res) => {
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({
-      error: "GEMINI_API_KEY no está configurada en Render."
-    });
-  }
+  setupInput();
+  loadTheme();
+  loadHistory();
+  updateStats();
 
-  try {
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json(data);
-    }
-
-    const models = (data.models || []).map(model => ({
-      name: model.name,
-      displayName: model.displayName,
-      description: model.description,
-      methods: model.supportedGenerationMethods || []
-    }));
-
-    res.json({
-      models
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      error: "No se pudieron consultar los modelos."
-    });
-  }
 });
 
 /* =========================
-   VISITAS
+   INPUT
 ========================= */
 
-app.get("/", (req, res) => {
+function setupInput() {
 
-  statistics.visitors++;
+  input.addEventListener("keydown", event => {
 
-  res.sendFile(
-    path.join(__dirname, "public", "index.html")
-  );
-});
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+
+      event.preventDefault();
+
+      sendMessage();
+
+    }
+
+  });
+
+  input.addEventListener("input", () => {
+
+    input.style.height = "auto";
+
+    input.style.height =
+      Math.min(input.scrollHeight, 180) + "px";
+
+  });
+
+}
 
 /* =========================
    CHAT
 ========================= */
 
-app.post("/api/chat", async (req, res) => {
+async function sendMessage() {
 
-  statistics.messages++;
+  const text =
+    input.value.trim();
 
-  if (!GEMINI_API_KEY) {
-
-    return res.status(500).json({
-      error:
-        "MORVIX no tiene configurada GEMINI_API_KEY en Render."
-    });
-
+  if (!text || sendButton.disabled) {
+    return;
   }
+
+  removeWelcome();
+
+  addMessage(
+    text,
+    "user"
+  );
+
+  messages.push({
+    role: "user",
+    content: text
+  });
+
+  saveHistory(text);
+
+  input.value = "";
+
+  input.style.height = "auto";
+
+  sendButton.disabled = true;
+
+  const thinking =
+    createThinking();
 
   try {
 
-    const incomingMessages =
-      Array.isArray(req.body.messages)
-        ? req.body.messages
-        : [];
+    const response =
+      await fetch("/api/chat", {
 
-    const contents = incomingMessages.map(message => ({
-      role:
-        message.role === "assistant"
-          ? "model"
-          : "user",
+        method: "POST",
 
-      parts: [
-        {
-          text: String(message.content || "")
-        }
-      ]
-    }));
-
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-
-    const response = await fetch(url, {
-
-      method: "POST",
-
-      headers: {
-        "Content-Type": "application/json"
-      },
-
-      body: JSON.stringify({
-
-        systemInstruction: {
-          parts: [
-            {
-              text:
-                "Tu nombre es MORVIX AI. " +
-                "Eres un asistente moderno, útil, claro y amigable. " +
-                "Responde en español salvo que el usuario solicite otro idioma. " +
-                "Utiliza Markdown cuando ayude a organizar la respuesta. " +
-                "Para código utiliza bloques Markdown. " +
-                "No inventes información."
-            }
-          ]
+        headers: {
+          "Content-Type": "application/json"
         },
 
-        contents,
+        body: JSON.stringify({
+          messages
+        })
 
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4096
-        }
-
-      })
-
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-
-      console.error(
-        "Gemini:",
-        JSON.stringify(data, null, 2)
-      );
-
-      return res.status(response.status).json({
-        error:
-          data?.error?.message ||
-          "Error de Gemini."
       });
 
+    const data =
+      await response.json();
+
+    thinking.remove();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Error del servidor"
+      );
     }
 
-    const answer =
-      data?.candidates?.[0]?.content?.parts
-        ?.map(part => part.text || "")
-        .join("") ||
-      "No pude generar una respuesta.";
+    const messageElement =
+      addMessage(
+        "",
+        "ai"
+      );
 
-    res.json({
-      answer,
-      model: TEXT_MODEL
+    await typeMarkdown(
+      messageElement.querySelector(".message-text"),
+      data.answer
+    );
+
+    addCopyButton(
+      messageElement,
+      data.answer
+    );
+
+    messages.push({
+      role: "assistant",
+      content: data.answer
     });
+
+    stats.messages++;
+
+    updateStats();
 
   } catch (error) {
 
-    console.error("CHAT ERROR:", error);
+    thinking.remove();
 
-    res.status(500).json({
-      error:
-        "MORVIX tuvo un error al comunicarse con Gemini."
-    });
+    addMessage(
+      "❌ " + error.message,
+      "ai"
+    );
+
+    console.error(error);
 
   }
 
-});
+  sendButton.disabled = false;
+
+  input.focus();
+
+}
 
 /* =========================
-   GENERACIÓN DE IMÁGENES
+   MENSAJES
 ========================= */
 
-app.post("/api/image", async (req, res) => {
+function addMessage(text, type) {
 
-  if (!GEMINI_API_KEY) {
+  const wrapper =
+    document.createElement("div");
 
-    return res.status(500).json({
-      error:
-        "GEMINI_API_KEY no está configurada."
-    });
+  wrapper.className =
+    `message ${type}`;
+
+  const avatar =
+    document.createElement("div");
+
+  avatar.className =
+    "message-avatar";
+
+  avatar.textContent =
+    type === "user"
+      ? "M"
+      : "✦";
+
+  const body =
+    document.createElement("div");
+
+  body.className =
+    "message-body";
+
+  const messageText =
+    document.createElement("div");
+
+  messageText.className =
+    "message-text";
+
+  if (text) {
+    messageText.innerHTML =
+      markdownToHTML(text);
+  }
+
+  body.appendChild(messageText);
+
+  wrapper.appendChild(avatar);
+
+  wrapper.appendChild(body);
+
+  chat.appendChild(wrapper);
+
+  scrollChat();
+
+  return wrapper;
+
+}
+
+/* =========================
+   MARKDOWN
+========================= */
+
+function markdownToHTML(text) {
+
+  let html =
+    escapeHTML(text);
+
+  html =
+    html.replace(
+      /```([\s\S]*?)```/g,
+      (_, code) => {
+
+        return `
+          <div class="code-block">
+            <button
+              class="copy-code"
+              onclick="copyText(this.dataset.code)"
+              data-code="${encodeURIComponent(code.trim())}">
+              Copiar
+            </button>
+            <pre><code>${code.trim()}</code></pre>
+          </div>
+        `;
+
+      }
+    );
+
+  html =
+    html.replace(
+      /^### (.*)$/gm,
+      "<h3>$1</h3>"
+    );
+
+  html =
+    html.replace(
+      /^## (.*)$/gm,
+      "<h2>$1</h2>"
+    );
+
+  html =
+    html.replace(
+      /^# (.*)$/gm,
+      "<h1>$1</h1>"
+    );
+
+  html =
+    html.replace(
+      /\*\*(.*?)\*\*/g,
+      "<strong>$1</strong>"
+    );
+
+  html =
+    html.replace(
+      /\*(.*?)\*/g,
+      "<em>$1</em>"
+    );
+
+  html =
+    html.replace(
+      /^\- (.*)$/gm,
+      "<li>$1</li>"
+    );
+
+  html =
+    html.replace(
+      /\n/g,
+      "<br>"
+    );
+
+  html =
+    html.replace(
+      /(<li>.*?<\/li>)/g,
+      "<ul>$1</ul>"
+    );
+
+  return html;
+
+}
+
+function escapeHTML(text) {
+
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+/* =========================
+   ESCRITURA ANIMADA
+========================= */
+
+async function typeMarkdown(element, text) {
+
+  element.innerHTML = "";
+
+  let current = "";
+
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+
+    current += text[i];
+
+    element.innerHTML =
+      markdownToHTML(current);
+
+    scrollChat();
+
+    await sleep(
+      text[i] === " "
+        ? 8
+        : 12
+    );
 
   }
 
-  const prompt =
-    String(req.body.prompt || "").trim();
+}
 
-  if (!prompt) {
+/* =========================
+   PENSANDO
+========================= */
 
-    return res.status(400).json({
-      error: "Escribe una descripción para la imagen."
-    });
+function createThinking() {
 
-  }
+  const element =
+    addMessage(
+      "",
+      "ai"
+    );
+
+  const text =
+    element.querySelector(
+      ".message-text"
+    );
+
+  text.innerHTML = `
+    <div class="thinking">
+      <span></span>
+      <span></span>
+      <span></span>
+      <b>MORVIX está pensando...</b>
+    </div>
+  `;
+
+  return element;
+
+}
+
+/* =========================
+   COPIAR
+========================= */
+
+function addCopyButton(
+  messageElement,
+  text
+) {
+
+  const button =
+    document.createElement("button");
+
+  button.className =
+    "copy-answer";
+
+  button.textContent =
+    "📋 Copiar";
+
+  button.onclick = () =>
+    copyText(text);
+
+  messageElement
+    .querySelector(".message-body")
+    .appendChild(button);
+
+}
+
+async function copyText(text) {
 
   try {
 
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const decoded =
+      decodeURIComponent(text);
 
-    const response = await fetch(url, {
+    await navigator.clipboard.writeText(
+      decoded
+    );
 
-      method: "POST",
+  } catch {
 
-      headers: {
-        "Content-Type": "application/json"
-      },
-
-      body: JSON.stringify({
-
-        contents: [
-          {
-            role: "user",
-
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ],
-
-        generationConfig: {
-
-          responseModalities: [
-            "TEXT",
-            "IMAGE"
-          ]
-
-        }
-
-      })
-
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-
-      console.error(
-        "IMAGE ERROR:",
-        JSON.stringify(data, null, 2)
-      );
-
-      return res.status(response.status).json({
-        error:
-          data?.error?.message ||
-          "El modelo de imágenes no está disponible para esta API key."
-      });
-
-    }
-
-    const parts =
-      data?.candidates?.[0]?.content?.parts || [];
-
-    const imagePart =
-      parts.find(
-        part =>
-          part.inlineData &&
-          part.inlineData.mimeType?.startsWith("image/")
-      );
-
-    if (!imagePart) {
-
-      const text =
-        parts
-          .map(part => part.text || "")
-          .join("");
-
-      return res.status(500).json({
-        error:
-          text ||
-          "El modelo respondió, pero no devolvió una imagen."
-      });
-
-    }
-
-    statistics.images++;
-
-    res.json({
-
-      image:
-        `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
-
-      model: IMAGE_MODEL
-
-    });
-
-  } catch (error) {
-
-    console.error("IMAGE ERROR:", error);
-
-    res.status(500).json({
-      error:
-        "No se pudo generar la imagen."
-    });
+    await navigator.clipboard.writeText(
+      text
+    );
 
   }
 
-});
+}
+
+/* =========================
+   IMÁGENES
+========================= */
+
+async function generateImage() {
+
+  const prompt =
+    window.prompt(
+      "🎨 ¿Qué imagen quieres crear?"
+    );
+
+  if (!prompt) {
+    return;
+  }
+
+  removeWelcome();
+
+  const loading =
+    createThinking();
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/image",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            prompt
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    loading.remove();
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        "No se pudo generar la imagen."
+      );
+
+    }
+
+    const wrapper =
+      addMessage(
+        "",
+        "ai"
+      );
+
+    const body =
+      wrapper.querySelector(
+        ".message-text"
+      );
+
+    body.innerHTML = `
+      <p>🎨 Imagen generada:</p>
+
+      <img
+        src="${data.image}"
+        class="generated-image"
+        alt="Imagen generada por MORVIX AI"
+      >
+
+      <br>
+
+      <button
+        class="download-image"
+        onclick="downloadImage('${data.image}')">
+        ⬇️ Guardar imagen
+      </button>
+    `;
+
+    stats.images++;
+
+    updateStats();
+
+  } catch (error) {
+
+    loading.remove();
+
+    addMessage(
+      "❌ " + error.message,
+      "ai"
+    );
+
+  }
+
+}
+
+function downloadImage(src) {
+
+  const link =
+    document.createElement("a");
+
+  link.href = src;
+
+  link.download =
+    "morvix-imagen.png";
+
+  link.click();
+
+}
 
 /* =========================
    ARCHIVOS
 ========================= */
 
-app.post(
-  "/api/upload",
-  upload.single("file"),
-  async (req, res) => {
+function openFilePicker() {
 
-    if (!req.file) {
+  let picker =
+    document.getElementById(
+      "filePicker"
+    );
 
-      return res.status(400).json({
-        error: "No se recibió ningún archivo."
-      });
+  if (!picker) {
 
+    picker =
+      document.createElement("input");
+
+    picker.type = "file";
+
+    picker.id =
+      "filePicker";
+
+    picker.accept =
+      ".txt,.pdf,.doc,.docx,.png,.jpg,.jpeg";
+
+    picker.style.display =
+      "none";
+
+    document.body.appendChild(
+      picker
+    );
+
+    picker.addEventListener(
+      "change",
+      uploadFile
+    );
+
+  }
+
+  picker.click();
+
+}
+
+async function uploadFile(event) {
+
+  const file =
+    event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  const form =
+    new FormData();
+
+  form.append(
+    "file",
+    file
+  );
+
+  addMessage(
+    `📎 Archivo seleccionado: ${file.name}`,
+    "user"
+  );
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/upload",
+        {
+          method: "POST",
+          body: form
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error
+      );
     }
 
-    statistics.files++;
+    addMessage(
+      "✅ " + data.message,
+      "ai"
+    );
 
-    res.json({
+    stats.files++;
 
-      success: true,
+    updateStats();
 
-      file: {
-        name: req.file.originalname,
-        type: req.file.mimetype,
-        size: req.file.size
-      },
+  } catch (error) {
 
-      message:
-        `Archivo "${req.file.originalname}" recibido correctamente.`
-
-    });
+    addMessage(
+      "❌ " + error.message,
+      "ai"
+    );
 
   }
-);
+
+  event.target.value = "";
+
+}
 
 /* =========================
-   BÚSQUEDA WEB
+   IMAGEN SUBIDA
 ========================= */
 
-app.get("/api/search", async (req, res) => {
+function uploadImage() {
+
+  const picker =
+    document.createElement(
+      "input"
+    );
+
+  picker.type =
+    "file";
+
+  picker.accept =
+    "image/*";
+
+  picker.onchange =
+    () => {
+
+      const file =
+        picker.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      addMessage(
+        `🖼️ Imagen seleccionada: ${file.name}`,
+        "user"
+      );
+
+      addMessage(
+        "🖼️ Imagen recibida. El análisis visual puede conectarse a Gemini cuando quieras.",
+        "ai"
+      );
+
+    };
+
+  picker.click();
+
+}
+
+/* =========================
+   BÚSQUEDA
+========================= */
+
+async function webSearch() {
 
   const query =
-    String(req.query.q || "").trim();
+    window.prompt(
+      "🌐 ¿Qué quieres buscar?"
+    );
 
   if (!query) {
+    return;
+  }
 
-    return res.status(400).json({
-      error: "Escribe algo para buscar."
-    });
+  addMessage(
+    "🌐 Buscando: " + query,
+    "user"
+  );
+
+  try {
+
+    const response =
+      await fetch(
+        `/api/search?q=${encodeURIComponent(query)}`
+      );
+
+    const data =
+      await response.json();
+
+    addMessage(
+      data.message,
+      "ai"
+    );
+
+  } catch {
+
+    addMessage(
+      "❌ No se pudo realizar la búsqueda.",
+      "ai"
+    );
 
   }
 
-  /*
-    MORVIX no hace scraping automático de Google.
-    Esta ruta deja preparada la función.
-  */
+}
 
-  res.json({
+/* =========================
+   MENÚ +
+========================= */
 
-    query,
+function toggleTools() {
 
-    message:
-      "Búsqueda web preparada. Puedes conectar aquí un proveedor de búsqueda cuando quieras."
+  const menu =
+    document.getElementById(
+      "toolsMenu"
+    );
+
+  if (!menu) {
+    return;
+  }
+
+  menu.classList.toggle(
+    "show"
+  );
+
+}
+
+/* =========================
+   HISTORIAL
+========================= */
+
+function saveHistory(text) {
+
+  let history =
+    JSON.parse(
+      localStorage.getItem(
+        "morvix-history"
+      ) || "[]"
+    );
+
+  history.unshift(text);
+
+  history =
+    history.slice(0, 30);
+
+  localStorage.setItem(
+    "morvix-history",
+    JSON.stringify(history)
+  );
+
+  loadHistory();
+
+}
+
+function loadHistory() {
+
+  if (!historyBox) {
+    return;
+  }
+
+  historyBox.innerHTML = "";
+
+  const history =
+    JSON.parse(
+      localStorage.getItem(
+        "morvix-history"
+      ) || "[]"
+    );
+
+  history.forEach(text => {
+
+    const item =
+      document.createElement(
+        "button"
+      );
+
+    item.className =
+      "history-item";
+
+    item.textContent =
+      text;
+
+    item.onclick = () => {
+
+      input.value =
+        text;
+
+      input.focus();
+
+    };
+
+    historyBox.appendChild(
+      item
+    );
 
   });
 
-});
+}
 
 /* =========================
-   SPA FALLBACK
+   NUEVO CHAT
 ========================= */
 
-app.use((req, res) => {
+function newChat() {
 
-  if (req.method === "GET") {
+  messages = [];
 
-    res.sendFile(
-      path.join(__dirname, "public", "index.html")
+  chat.innerHTML = `
+    <div class="welcome" id="welcome">
+      <div class="big-logo">✦</div>
+
+      <h1>
+        ¿Qué quieres hacer hoy?
+      </h1>
+
+      <p>
+        Pregunta, crea, aprende y descubre
+        con MORVIX AI.
+      </p>
+
+      <div class="welcome-grid">
+
+        <button onclick="suggest('Explícame un tema de estudio')">
+          🧠 Aprender
+        </button>
+
+        <button onclick="generateImage()">
+          🎨 Crear imagen
+        </button>
+
+        <button onclick="suggest('Ayúdame a programar una página web')">
+          💻 Programar
+        </button>
+
+        <button onclick="suggest('Dame ideas creativas')">
+          ✨ Ideas
+        </button>
+
+      </div>
+    </div>
+  `;
+
+  input.focus();
+
+}
+
+/* =========================
+   SUGERENCIAS
+========================= */
+
+function suggest(text) {
+
+  input.value =
+    text;
+
+  input.focus();
+
+}
+
+/* =========================
+   LIMPIAR
+========================= */
+
+function clearChat() {
+
+  messages = [];
+
+  newChat();
+
+}
+
+/* =========================
+   TEMA
+========================= */
+
+function toggleTheme() {
+
+  document.body.classList.toggle(
+    "dark"
+  );
+
+  localStorage.setItem(
+    "morvix-theme",
+    document.body.classList.contains(
+      "dark"
+    )
+      ? "dark"
+      : "light"
+  );
+
+}
+
+function loadTheme() {
+
+  if (
+    localStorage.getItem(
+      "morvix-theme"
+    ) === "dark"
+  ) {
+
+    document.body.classList.add(
+      "dark"
     );
-
-  } else {
-
-    res.status(404).json({
-      error: "Ruta no encontrada."
-    });
 
   }
 
-});
+}
 
 /* =========================
-   SERVIDOR
+   SIDEBAR
 ========================= */
 
-app.listen(PORT, "0.0.0.0", () => {
+function toggleSidebar() {
 
-  console.log(
-    `MORVIX AI funcionando en el puerto ${PORT}`
+  document
+    .querySelector(
+      ".sidebar"
+    )
+    ?.classList.toggle(
+      "open"
+    );
+
+}
+
+/* =========================
+   PERFIL
+========================= */
+
+function showAbout() {
+
+  alert(
+    "✦ MORVIX AI\n\n" +
+    "Asistente de inteligencia artificial.\n\n" +
+    "Plan: Gratuito"
   );
 
-  console.log(
-    `Modelo de texto: ${TEXT_MODEL}`
+}
+
+/* =========================
+   ESTADÍSTICAS
+========================= */
+
+async function updateStats() {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/stats"
+      );
+
+    const data =
+      await response.json();
+
+    const visitors =
+      document.getElementById(
+        "statVisitors"
+      );
+
+    const messagesElement =
+      document.getElementById(
+        "statMessages"
+      );
+
+    const images =
+      document.getElementById(
+        "statImages"
+      );
+
+    if (visitors) {
+      visitors.textContent =
+        data.visitors;
+    }
+
+    if (messagesElement) {
+      messagesElement.textContent =
+        data.messages;
+    }
+
+    if (images) {
+      images.textContent =
+        data.images;
+    }
+
+  } catch {}
+
+}
+
+/* =========================
+   UTILIDADES
+========================= */
+
+function removeWelcome() {
+
+  document
+    .getElementById(
+      "welcome"
+    )
+    ?.remove();
+
+}
+
+function scrollChat() {
+
+  chat.scrollTop =
+    chat.scrollHeight;
+
+}
+
+function sleep(ms) {
+
+  return new Promise(
+    resolve =>
+      setTimeout(resolve, ms)
   );
 
-  console.log(
-    `Modelo de imágenes: ${IMAGE_MODEL}`
-  );
-
-});
+}
