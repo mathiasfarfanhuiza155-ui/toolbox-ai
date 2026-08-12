@@ -1,91 +1,122 @@
 const chat = document.getElementById("chat");
-
 const input = document.getElementById("message");
-
-const historyBox =
-  document.getElementById("history");
-
-const sendButton =
-  document.getElementById("send");
-
+const historyBox = document.getElementById("history");
+const sendButton = document.getElementById("send");
 
 let messages = [];
 
+input.addEventListener("keydown", function (event) {
 
-/* ENTER PARA ENVIAR */
+  if (event.key === "Enter" && !event.shiftKey) {
 
-input.addEventListener(
-  "keydown",
-  function (event) {
+    event.preventDefault();
 
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-
-      event.preventDefault();
-
-      sendMessage();
-
-    }
+    sendMessage();
 
   }
-);
+
+});
 
 
-/* ENVIAR MENSAJE */
+async function sendMessage() {
 
-function sendMessage() {
+  const text = input.value.trim();
 
-  const text =
-    input.value.trim();
-
-  if (!text) {
+  if (!text || sendButton.disabled) {
     return;
   }
 
+  addMessage(text, "user");
 
-  addMessage(
-    text,
-    "user"
-  );
-
+  messages.push({
+    role: "user",
+    content: text
+  });
 
   addHistory(text);
 
-
   input.value = "";
 
+  const thinking = addMessage(
+    "ToolBox AI está pensando...",
+    "ai"
+  );
 
-  const answer =
-    getDemoAnswer(text);
+  sendButton.disabled = true;
+
+  try {
+
+    const response = await fetch(
+      "/api/chat",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          messages: messages
+        })
+      }
+    );
 
 
-  setTimeout(
-    function () {
+    const data = await response.json();
 
-      addMessage(
-        answer,
-        "ai"
+
+    thinking.remove();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error || "Error del servidor"
       );
 
-    },
-    600
-  );
+    }
+
+
+    addMessage(
+      data.answer,
+      "ai"
+    );
+
+
+    messages.push({
+
+      role: "assistant",
+
+      content: data.answer
+
+    });
+
+
+  } catch (error) {
+
+    thinking.remove();
+
+    addMessage(
+      "❌ No pude conectarme con la IA. Revisa la configuración del servidor.",
+      "ai"
+    );
+
+    console.error(error);
+
+  }
+
+
+  sendButton.disabled = false;
+
+  input.focus();
 
 }
 
 
-/* AGREGAR MENSAJE */
-
-function addMessage(
-  text,
-  type
-) {
+function addMessage(text, type) {
 
   const message =
     document.createElement("div");
-
 
   message.className =
     "message " + type;
@@ -93,7 +124,6 @@ function addMessage(
 
   const icon =
     document.createElement("div");
-
 
   icon.className =
     "message-icon " +
@@ -112,7 +142,6 @@ function addMessage(
 
   const content =
     document.createElement("div");
-
 
   content.className =
     "message-content";
@@ -133,31 +162,27 @@ function addMessage(
   chat.scrollTop =
     chat.scrollHeight;
 
+
+  return message;
+
 }
 
-
-/* HISTORIAL */
 
 function addHistory(text) {
 
   const item =
     document.createElement("div");
 
-
   item.className =
     "history-item";
 
-
   item.textContent =
     text;
-
 
   historyBox.prepend(item);
 
 }
 
-
-/* BOTONES DE SUGERENCIAS */
 
 function suggest(text) {
 
@@ -168,12 +193,9 @@ function suggest(text) {
 }
 
 
-/* NUEVO CHAT */
-
 function newChat() {
 
   messages = [];
-
 
   chat.innerHTML = `
 
@@ -188,7 +210,8 @@ function newChat() {
       </h1>
 
       <p>
-        Pregunta, aprende, crea y descubre con ToolBox AI.
+        Pregunta, aprende, crea y descubre
+        con ToolBox AI.
       </p>
 
     </div>
@@ -200,16 +223,12 @@ function newChat() {
 }
 
 
-/* BORRAR CHAT */
-
 function clearChat() {
 
   newChat();
 
 }
 
-
-/* MODO OSCURO */
 
 function toggleTheme() {
 
@@ -220,8 +239,6 @@ function toggleTheme() {
 }
 
 
-/* MENÚ CELULAR */
-
 function toggleSidebar() {
 
   document
@@ -231,106 +248,11 @@ function toggleSidebar() {
 }
 
 
-/* INFORMACIÓN */
-
 function showAbout() {
 
   alert(
     "ToolBox AI\n\n" +
-    "Asistente inteligente.\n" +
-    "Versión 1.0"
-  );
-
-}
-
-
-/* RESPUESTAS DE PRUEBA */
-
-function getDemoAnswer(text) {
-
-  const lower =
-    text.toLowerCase();
-
-
-  if (
-    lower.includes("hola") ||
-    lower.includes("buenas")
-  ) {
-
-    return (
-      "¡Hola! 👋 Soy ToolBox AI. " +
-      "¿En qué puedo ayudarte?"
-    );
-
-  }
-
-
-  if (
-    lower.includes("isaac newton") ||
-    lower.includes("newton")
-  ) {
-
-    return (
-      "Isaac Newton fue un físico, matemático " +
-      "y astrónomo inglés. Nació en 1643 y murió " +
-      "en 1727. Es conocido por sus trabajos sobre " +
-      "las leyes del movimiento y la gravitación " +
-      "universal. También realizó importantes " +
-      "contribuciones al desarrollo del cálculo."
-    );
-
-  }
-
-
-  if (
-    lower.includes("dinero") ||
-    lower.includes("ganar")
-  ) {
-
-    return (
-      "💰 Algunas formas de ganar dinero por " +
-      "internet son crear páginas web, ofrecer " +
-      "servicios digitales, crear contenido o " +
-      "vender productos digitales."
-    );
-
-  }
-
-
-  if (
-    lower.includes("web") ||
-    lower.includes("página")
-  ) {
-
-    return (
-      "💻 Podemos crear una página web usando " +
-      "HTML, CSS y JavaScript. Después podemos " +
-      "añadir un servidor y conectar una IA real."
-    );
-
-  }
-
-
-  if (
-    lower.includes("tarea") ||
-    lower.includes("estudiar")
-  ) {
-
-    return (
-      "📚 Claro. Puedo ayudarte a entender " +
-      "un tema, hacer un resumen, preparar " +
-      "preguntas o practicar para un examen."
-    );
-
-  }
-
-
-  return (
-    "Soy ToolBox AI y actualmente estoy en " +
-    "modo de demostración. Esta respuesta " +
-    "es generada por JavaScript. " +
-    "El siguiente paso será conectar una " +
-    "IA real mediante una API."
+    "Asistente de inteligencia artificial."
   );
 
 }
