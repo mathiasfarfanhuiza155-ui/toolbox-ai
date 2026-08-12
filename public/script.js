@@ -1,53 +1,43 @@
-const chat = document.getElementById("chat");
-const input = document.getElementById("message");
-const historyBox = document.getElementById("history");
-const sendButton = document.getElementById("send");
+const express = require("express");
 
-let messages = [];
+const app = express();
 
-input.addEventListener("keydown", function (event) {
+app.use(express.json());
 
-  if (event.key === "Enter" && !event.shiftKey) {
+app.use(express.static(__dirname));
 
-    event.preventDefault();
+const PORT = process.env.PORT || 10000;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-    sendMessage();
-
-  }
-
-});
-
-
-async function sendMessage() {
-
-  const text = input.value.trim();
-
-  if (!text || sendButton.disabled) {
-    return;
-  }
-
-  addMessage(text, "user");
-
-  messages.push({
-    role: "user",
-    content: text
-  });
-
-  addHistory(text);
-
-  input.value = "";
-
-  const thinking = addMessage(
-    "MORVIX AI está pensando...",
-    "ai"
-  );
-
-  sendButton.disabled = true;
-
+app.post("/api/chat", async (req, res) => {
   try {
 
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: "No está configurada GEMINI_API_KEY en Render."
+      });
+    }
+
+    const messages = req.body.messages || [];
+
+    if (!messages.length) {
+      return res.status(400).json({
+        error: "No se recibió ningún mensaje."
+      });
+    }
+
+    const contents = messages.map(message => ({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [
+        {
+          text: message.content
+        }
+      ]
+    }));
+
     const response = await fetch(
-      "/api/chat",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+      GEMINI_API_KEY,
       {
         method: "POST",
 
@@ -56,208 +46,54 @@ async function sendMessage() {
         },
 
         body: JSON.stringify({
-          messages: messages
+          systemInstruction: {
+            parts: [
+              {
+                text: "Eres MORVIX AI, un asistente inteligente, amable y útil. Responde principalmente en español. Ayuda con estudios, programación, creatividad, preguntas y tareas. Sé claro y no inventes información."
+              }
+            ]
+          },
+
+          contents: contents
         })
       }
     );
 
     const data = await response.json();
 
-    thinking.remove();
-
     if (!response.ok) {
 
-      throw new Error(
-        data.error || "Error del servidor"
-      );
+      console.error("Error de Gemini:", data);
 
+      return res.status(response.status).json({
+        error: data.error?.message || "Error al conectar con Gemini."
+      });
     }
 
-    addMessage(
-      data.answer,
-      "ai"
-    );
+    const answer =
+      data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    messages.push({
+    if (!answer) {
+      return res.status(500).json({
+        error: "Gemini no devolvió ninguna respuesta."
+      });
+    }
 
-      role: "assistant",
-
-      content: data.answer
-
+    res.json({
+      answer: answer
     });
 
   } catch (error) {
 
-    thinking.remove();
+    console.error("Error del servidor:", error);
 
-    addMessage(
-      "❌ MORVIX AI no pudo conectarse con el servidor. Revisa la configuración de Render.",
-      "ai"
-    );
-
-    console.error(error);
+    res.status(500).json({
+      error: "Error interno del servidor."
+    });
 
   }
-
-  sendButton.disabled = false;
-
-  input.focus();
-
-}
-
-
-function addMessage(text, type) {
-
-  const message =
-    document.createElement("div");
-
-  message.className =
-    "message " + type;
-
-  const icon =
-    document.createElement("div");
-
-  icon.className =
-    "message-icon " +
-    (
-      type === "user"
-        ? "user-icon"
-        : "ai-icon"
-    );
-
-  icon.textContent =
-    type === "user"
-      ? "M"
-      : "✦";
-
-  const content =
-    document.createElement("div");
-
-  content.className =
-    "message-content";
-
-  content.textContent =
-    text;
-
-  message.appendChild(icon);
-
-  message.appendChild(content);
-
-  chat.appendChild(message);
-
-  chat.scrollTop =
-    chat.scrollHeight;
-
-  return message;
-
-}
-
-
-function addHistory(text) {
-
-  const item =
-    document.createElement("div");
-
-  item.className =
-    "history-item";
-
-  item.textContent =
-    text;
-
-  historyBox.prepend(item);
-
-}
-
-
-function suggest(text) {
-
-  input.value = text;
-
-  input.focus();
-
-}
-
-
-function newChat() {
-
-  messages = [];
-
-  chat.innerHTML = `
-
-    <div class="welcome">
-
-      <div class="big-logo">
-        ✦
-      </div>
-
-      <h1>
-        ¿En qué puedo ayudarte?
-      </h1>
-
-      <p>
-        Pregunta, aprende, crea y descubre
-        con MORVIX AI.
-      </p>
-
-      <div class="suggestions">
-
-        <button onclick="suggest('Explícame qué es la inteligencia artificial')">
-          🧠 Explícame algo
-        </button>
-
-        <button onclick="suggest('Dame ideas para ganar dinero por internet')">
-          💰 Dame ideas
-        </button>
-
-        <button onclick="suggest('Ayúdame a crear una página web')">
-          💻 Crear una web
-        </button>
-
-        <button onclick="suggest('Ayúdame con una tarea escolar')">
-          📚 Ayúdame a estudiar
-        </button>
-
-      </div>
-
-    </div>
-
-  `;
-
-  input.focus();
-
-}
-
-
-function clearChat() {
-
-  newChat();
-
-}
-
-
-function toggleTheme() {
-
-  document.body.classList.toggle(
-    "dark"
-  );
-
-}
-
-
-function toggleSidebar() {
-
-  document
-    .querySelector(".sidebar")
-    .classList.toggle("open");
-
-}
-
-
-function showAbout() {
-
-  alert(
-    "MORVIX AI\n\n" +
-    "Asistente de inteligencia artificial."
-  );
-
-}
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`MORVIX AI funcionando en el puerto ${PORT}`);
+});
