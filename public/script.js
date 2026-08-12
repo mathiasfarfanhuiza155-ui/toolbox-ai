@@ -4,14 +4,24 @@ const chat =
 const input =
     document.getElementById("message");
 
-const historyBox =
-    document.getElementById("history");
-
 const sendButton =
     document.getElementById("send");
 
+const historyBox =
+    document.getElementById("history");
+
 const toolsMenu =
     document.getElementById("toolsMenu");
+
+const plusButton =
+    document.getElementById("plusButton");
+
+const fileInput =
+    document.getElementById("fileInput");
+
+const imageInput =
+    document.getElementById("imageInput");
+
 
 let messages = [];
 
@@ -47,11 +57,11 @@ input.addEventListener(
     "input",
     function() {
 
-        input.style.height = "auto";
+        this.style.height = "auto";
 
-        input.style.height =
+        this.style.height =
             Math.min(
-                input.scrollHeight,
+                this.scrollHeight,
                 180
             ) + "px";
 
@@ -60,7 +70,7 @@ input.addEventListener(
 
 
 // ========================================
-// ENVIAR
+// ENVIAR MENSAJE
 // ========================================
 
 async function sendMessage() {
@@ -72,14 +82,16 @@ async function sendMessage() {
         !text ||
         sendButton.disabled
     ) {
+
         return;
+
     }
 
 
-    addMessage(
-        text,
-        "user"
-    );
+    removeWelcome();
+
+
+    addUserMessage(text);
 
 
     messages.push({
@@ -99,14 +111,12 @@ async function sendMessage() {
     input.style.height = "40px";
 
 
-    const thinking =
-        addMessage(
-            "MORVIX está pensando...",
-            "ai"
-        );
+    const typing =
+        addTyping();
 
 
-    sendButton.disabled = true;
+    sendButton.disabled =
+        true;
 
 
     try {
@@ -115,11 +125,14 @@ async function sendMessage() {
             await fetch(
                 "/api/chat",
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
@@ -127,6 +140,7 @@ async function sendMessage() {
                             messages:
                                 messages
                         })
+
                 }
             );
 
@@ -135,7 +149,7 @@ async function sendMessage() {
             await response.json();
 
 
-        thinking.remove();
+        typing.remove();
 
 
         if (!response.ok) {
@@ -148,15 +162,15 @@ async function sendMessage() {
         }
 
 
-        addMessage(
-            data.answer,
-            "ai"
+        await addAIMessage(
+            data.answer || "No recibí una respuesta."
         );
 
 
         messages.push({
 
-            role: "assistant",
+            role:
+                "assistant",
 
             content:
                 data.answer
@@ -164,15 +178,14 @@ async function sendMessage() {
         });
 
 
-    } catch (error) {
+    } catch(error) {
 
-        thinking.remove();
+        typing.remove();
 
 
-        addMessage(
-            "❌ MORVIX no pudo conectarse con la IA.\n\n" +
-            error.message,
-            "ai"
+        addAIMessage(
+            "❌ **MORVIX no pudo conectarse con la IA.**\n\n" +
+            error.message
         );
 
 
@@ -181,7 +194,8 @@ async function sendMessage() {
     }
 
 
-    sendButton.disabled = false;
+    sendButton.disabled =
+        false;
 
     input.focus();
 
@@ -189,51 +203,133 @@ async function sendMessage() {
 
 
 // ========================================
-// CREAR MENSAJE
+// USUARIO
 // ========================================
 
-function addMessage(text, type) {
+function addUserMessage(text) {
 
     const message =
         document.createElement("div");
 
     message.className =
-        "message " + type;
+        "message user";
 
 
-    const icon =
+    message.innerHTML = `
+
+        <div class="message-icon">
+            M
+        </div>
+
+        <div class="message-content"></div>
+
+    `;
+
+
+    message
+        .querySelector(".message-content")
+        .textContent = text;
+
+
+    chat.appendChild(message);
+
+    scrollBottom();
+
+}
+
+
+// ========================================
+// IA
+// ========================================
+
+async function addAIMessage(text) {
+
+    const message =
         document.createElement("div");
 
-    icon.className =
-        "message-icon";
+    message.className =
+        "message ai";
 
 
-    icon.textContent =
-        type === "user"
-            ? "M"
-            : "✦";
+    message.innerHTML = `
 
+        <div class="message-icon">
+            ✦
+        </div>
 
-    const content =
-        document.createElement("div");
+        <div>
 
-    content.className =
-        "message-content";
+            <div class="message-content"></div>
 
+            <div class="answer-tools">
 
-    content.textContent =
-        text;
+                <button
+                    class="copy-answer"
+                    onclick="copyAnswer(this)"
+                >
+                    📋 Copiar
+                </button>
 
+            </div>
 
-    message.appendChild(icon);
+        </div>
 
-    message.appendChild(content);
+    `;
+
 
     chat.appendChild(message);
 
 
-    chat.scrollTop =
-        chat.scrollHeight;
+    const content =
+        message.querySelector(
+            ".message-content"
+        );
+
+
+    await typeMarkdown(
+        content,
+        text
+    );
+
+
+    scrollBottom();
+
+}
+
+
+// ========================================
+// TYPING
+// ========================================
+
+function addTyping() {
+
+    const message =
+        document.createElement("div");
+
+    message.className =
+        "message ai";
+
+
+    message.innerHTML = `
+
+        <div class="message-icon">
+            ✦
+        </div>
+
+        <div class="typing">
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </div>
+
+    `;
+
+
+    chat.appendChild(message);
+
+    scrollBottom();
 
 
     return message;
@@ -242,43 +338,309 @@ function addMessage(text, type) {
 
 
 // ========================================
-// HISTORIAL
+// MARKDOWN
 // ========================================
 
-function addHistory(text) {
+async function typeMarkdown(
+    element,
+    text
+) {
 
-    const item =
+    const html =
+        markdownToHTML(text);
+
+
+    const temporary =
         document.createElement("div");
 
-    item.className =
-        "history-item";
-
-    item.textContent =
-        text;
+    temporary.innerHTML =
+        html;
 
 
-    historyBox.prepend(item);
+    const plain =
+        temporary.textContent || "";
+
+
+    element.innerHTML = "";
+
+
+    if (
+        text.includes("```")
+    ) {
+
+        element.innerHTML =
+            html;
+
+        activateCodeButtons();
+
+        return;
+
+    }
+
+
+    for (
+        let i = 0;
+        i < plain.length;
+        i++
+    ) {
+
+        element.textContent =
+            plain.substring(
+                0,
+                i + 1
+            );
+
+        scrollBottom();
+
+        await sleep(8);
+
+    }
+
+
+    element.innerHTML =
+        html;
 
 }
 
 
 // ========================================
-// SUGERENCIAS
+// MARKDOWN SIMPLE
 // ========================================
 
-function suggest(text) {
+function markdownToHTML(text) {
 
-    input.value = text;
+    let safe =
+        escapeHTML(text);
 
-    input.focus();
 
-    input.style.height = "auto";
+    const codeBlocks = [];
 
-    input.style.height =
-        Math.min(
-            input.scrollHeight,
-            180
-        ) + "px";
+
+    safe =
+        safe.replace(
+            /```(\w*)\n?([\s\S]*?)```/g,
+            function(
+                match,
+                language,
+                code
+            ) {
+
+                const id =
+                    "code-" +
+                    Date.now() +
+                    "-" +
+                    codeBlocks.length;
+
+
+                codeBlocks.push({
+                    id,
+                    language:
+                        language ||
+                        "code",
+                    code
+                });
+
+
+                return `
+
+                    <div class="code-block">
+
+                        <div class="code-header">
+
+                            <span>
+                                ${language || "código"}
+                            </span>
+
+                            <button
+                                class="copy-code"
+                                data-code-id="${id}"
+                            >
+                                Copiar
+                            </button>
+
+                        </div>
+
+                        <pre>
+                            <code id="${id}">
+                                ${code}
+                            </code>
+                        </pre>
+
+                    </div>
+
+                `;
+
+            }
+        );
+
+
+    safe =
+        safe.replace(
+            /^### (.*)$/gm,
+            "<h3>$1</h3>"
+        );
+
+
+    safe =
+        safe.replace(
+            /^## (.*)$/gm,
+            "<h2>$1</h2>"
+        );
+
+
+    safe =
+        safe.replace(
+            /^# (.*)$/gm,
+            "<h1>$1</h1>"
+        );
+
+
+    safe =
+        safe.replace(
+            /\*\*(.*?)\*\*/g,
+            "<strong>$1</strong>"
+        );
+
+
+    safe =
+        safe.replace(
+            /`([^`]+)`/g,
+            '<span class="inline-code">$1</span>'
+        );
+
+
+    safe =
+        safe.replace(
+            /^[-*] (.*)$/gm,
+            "<li>$1</li>"
+        );
+
+
+    safe =
+        safe.replace(
+            /(<li>.*<\/li>)/gs,
+            "<ul>$1</ul>"
+        );
+
+
+    safe =
+        safe.replace(
+            /\n/g,
+            "<br>"
+        );
+
+
+    return safe;
+
+}
+
+
+// ========================================
+// ESCAPE HTML
+// ========================================
+
+function escapeHTML(text) {
+
+    const div =
+        document.createElement("div");
+
+    div.textContent =
+        text;
+
+    return div.innerHTML;
+
+}
+
+
+// ========================================
+// COPIAR RESPUESTA
+// ========================================
+
+async function copyAnswer(button) {
+
+    const message =
+        button
+            .closest(".message");
+
+    const content =
+        message
+            .querySelector(
+                ".message-content"
+            );
+
+
+    await navigator.clipboard.writeText(
+        content.innerText
+    );
+
+
+    const old =
+        button.textContent;
+
+
+    button.textContent =
+        "✓ Copiado";
+
+
+    setTimeout(
+        () => {
+
+            button.textContent =
+                old;
+
+        },
+        1500
+    );
+
+}
+
+
+// ========================================
+// COPIAR CÓDIGO
+// ========================================
+
+function activateCodeButtons() {
+
+    document
+        .querySelectorAll(
+            ".copy-code"
+        )
+        .forEach(button => {
+
+            button.onclick =
+                async function() {
+
+                    const id =
+                        this.dataset.codeId;
+
+                    const code =
+                        document
+                            .getElementById(id)
+                            .innerText;
+
+
+                    await navigator
+                        .clipboard
+                        .writeText(code);
+
+
+                    this.textContent =
+                        "✓ Copiado";
+
+
+                    setTimeout(
+                        () => {
+
+                            this.textContent =
+                                "Copiar";
+
+                        },
+                        1500
+                    );
+
+                };
+
+        });
 
 }
 
@@ -296,7 +658,7 @@ function newChat() {
 
         <div class="welcome">
 
-            <div class="welcome-logo">
+            <div class="hero-logo">
                 <span>✦</span>
             </div>
 
@@ -309,77 +671,59 @@ function newChat() {
                 con <strong>MORVIX AI</strong>.
             </p>
 
-            <div class="suggestions">
+            <div class="cards">
 
                 <button onclick="suggest(
-                    'Explícame qué es la inteligencia artificial de manera sencilla'
+                    'Explícame la inteligencia artificial de manera sencilla'
                 )">
-
-                    <div class="suggest-icon blue">
-                        ✦
-                    </div>
-
+                    🧠
                     <div>
                         <strong>Explícame algo</strong>
-                        <small>Aprende un concepto nuevo</small>
+                        <small>Aprende cualquier concepto</small>
                     </div>
-
                 </button>
 
                 <button onclick="suggest(
-                    'Dame ideas creativas para ganar dinero por internet'
+                    'Dame ideas creativas para un proyecto'
                 )">
-
-                    <div class="suggest-icon green">
-                        $
-                    </div>
-
+                    💡
                     <div>
                         <strong>Dame ideas</strong>
-                        <small>Encuentra nuevas posibilidades</small>
+                        <small>Crea algo nuevo</small>
                     </div>
-
                 </button>
 
                 <button onclick="suggest(
                     'Ayúdame a crear una página web moderna'
                 )">
-
-                    <div class="suggest-icon purple">
-                        &lt;/&gt;
-                    </div>
-
+                    💻
                     <div>
-                        <strong>Crear una web</strong>
-                        <small>Programa con MORVIX</small>
+                        <strong>Programar</strong>
+                        <small>Crea código y páginas web</small>
                     </div>
-
                 </button>
 
                 <button onclick="suggest(
                     'Ayúdame con una tarea escolar'
                 )">
-
-                    <div class="suggest-icon orange">
-                        ✎
-                    </div>
-
+                    📚
                     <div>
-                        <strong>Ayúdame a estudiar</strong>
+                        <strong>Estudiar</strong>
                         <small>Aprende paso a paso</small>
                     </div>
-
                 </button>
 
             </div>
 
         </div>
+
     `;
 
 
     input.value = "";
 
-    input.style.height = "40px";
+    input.style.height =
+        "40px";
 
     input.focus();
 
@@ -398,14 +742,37 @@ function clearChat() {
 
 
 // ========================================
+// SUGERIR
+// ========================================
+
+function suggest(text) {
+
+    input.value =
+        text;
+
+    input.focus();
+
+    input.style.height =
+        "auto";
+
+    input.style.height =
+        Math.min(
+            input.scrollHeight,
+            180
+        ) + "px";
+
+}
+
+
+// ========================================
 // TEMA
 // ========================================
 
 function toggleTheme() {
 
-    document.body.classList.toggle(
-        "dark"
-    );
+    document.body
+        .classList
+        .toggle("dark");
 
 
     localStorage.setItem(
@@ -424,9 +791,9 @@ if (
     ) === "dark"
 ) {
 
-    document.body.classList.add(
-        "dark"
-    );
+    document.body
+        .classList
+        .add("dark");
 
 }
 
@@ -439,22 +806,155 @@ function toggleSidebar() {
 
     document
         .getElementById("sidebar")
-        .classList.toggle("open");
+        .classList
+        .toggle("open");
 
 }
 
 
 // ========================================
-// CONFIGURACIÓN
+// HERRAMIENTAS
 // ========================================
 
-function showAbout() {
+function toggleTools() {
 
-    alert(
-        "✦ MORVIX AI\n\n" +
-        "Asistente de inteligencia artificial.\n\n" +
-        "Versión 2.1"
-    );
+    toolsMenu
+        .classList
+        .toggle("show");
+
+}
+
+
+document.addEventListener(
+    "click",
+    function(event) {
+
+        if (
+            toolsMenu &&
+            !toolsMenu.contains(event.target) &&
+            !plusButton.contains(event.target)
+        ) {
+
+            toolsMenu
+                .classList
+                .remove("show");
+
+        }
+
+    }
+);
+
+
+// ========================================
+// CREAR IMAGEN
+// ========================================
+
+function createImage() {
+
+    toolsMenu
+        .classList
+        .remove("show");
+
+
+    input.value =
+        "Crea una imagen de ";
+
+
+    input.focus();
+
+}
+
+
+// ========================================
+// ARCHIVOS
+// ========================================
+
+function chooseFile() {
+
+    toolsMenu
+        .classList
+        .remove("show");
+
+
+    fileInput.click();
+
+}
+
+
+fileInput.addEventListener(
+    "change",
+    function() {
+
+        if (!this.files.length)
+            return;
+
+
+        const file =
+            this.files[0];
+
+
+        addUserMessage(
+            "📎 Archivo seleccionado: " +
+            file.name
+        );
+
+    }
+);
+
+
+// ========================================
+// IMÁGENES
+// ========================================
+
+function chooseImage() {
+
+    toolsMenu
+        .classList
+        .remove("show");
+
+
+    imageInput.click();
+
+}
+
+
+imageInput.addEventListener(
+    "change",
+    function() {
+
+        if (!this.files.length)
+            return;
+
+
+        const file =
+            this.files[0];
+
+
+        addUserMessage(
+            "🖼️ Imagen seleccionada: " +
+            file.name
+        );
+
+    }
+);
+
+
+// ========================================
+// WEB
+// ========================================
+
+function searchWeb() {
+
+    toolsMenu
+        .classList
+        .remove("show");
+
+
+    input.value =
+        "Busca en internet información sobre ";
+
+
+    input.focus();
 
 }
 
@@ -473,32 +973,33 @@ async function showStats() {
             );
 
 
+        if (!response.ok)
+            throw new Error();
+
+
         const data =
             await response.json();
 
 
         alert(
 
-            "📊 ESTADÍSTICAS DE MORVIX\n\n" +
+            "📊 ESTADÍSTICAS MORVIX\n\n" +
 
-            "Visitas: " +
-            data.visits +
-            "\n\n" +
+            "👥 Usuarios/visitas: " +
+            (data.visits ?? 0) +
 
-            "Mensajes: " +
-            data.messages +
-            "\n\n" +
+            "\n\n💬 Mensajes: " +
+            (data.messages ?? 0) +
 
-            "Imágenes generadas: " +
-            data.imageGenerations
+            "\n\n🎨 Imágenes: " +
+            (data.imageGenerations ?? 0)
 
         );
-
 
     } catch {
 
         alert(
-            "No se pudieron cargar las estadísticas."
+            "Las estadísticas todavía no están disponibles en el servidor."
         );
 
     }
@@ -507,180 +1008,60 @@ async function showStats() {
 
 
 // ========================================
-// BOTÓN +
+// CONFIGURACIÓN
 // ========================================
 
-function toggleTools() {
-
-    toolsMenu.classList.toggle(
-        "show"
-    );
-
-}
-
-
-// ========================================
-// CREAR IMAGEN
-// ========================================
-
-function createImageTool() {
-
-    toolsMenu.classList.remove(
-        "show"
-    );
-
-
-    input.value =
-        "Crea una imagen de ";
-
-
-    input.focus();
-
-}
-
-
-// ========================================
-// SUBIR ARCHIVO
-// ========================================
-
-function uploadFile() {
-
-    toolsMenu.classList.remove(
-        "show"
-    );
-
-
-    document
-        .getElementById("fileInput")
-        .click();
-
-}
-
-
-document
-    .getElementById("fileInput")
-    .addEventListener(
-        "change",
-        function() {
-
-            const file =
-                this.files[0];
-
-            if (!file) return;
-
-
-            addMessage(
-                "📎 Archivo seleccionado: " +
-                file.name,
-                "user"
-            );
-
-        }
-    );
-
-
-// ========================================
-// IMAGEN
-// ========================================
-
-function uploadImage() {
-
-    toolsMenu.classList.remove(
-        "show"
-    );
-
-
-    document
-        .getElementById("imageInput")
-        .click();
-
-}
-
-
-document
-    .getElementById("imageInput")
-    .addEventListener(
-        "change",
-        function() {
-
-            const file =
-                this.files[0];
-
-            if (!file) return;
-
-
-            addMessage(
-                "🖼️ Imagen seleccionada: " +
-                file.name,
-                "user"
-            );
-
-        }
-    );
-
-
-// ========================================
-// WEB
-// ========================================
-
-function webSearchTool() {
-
-    toolsMenu.classList.remove(
-        "show"
-    );
-
+function showAbout() {
 
     alert(
-        "🌐 La búsqueda web se añadirá próximamente."
+
+        "✦ MORVIX AI\n\n" +
+
+        "Tu asistente inteligente.\n\n" +
+
+        "Versión 3.0"
+
     );
 
 }
 
 
 // ========================================
-// CERRAR MENÚ
+// UTILIDADES
 // ========================================
 
-document.addEventListener(
-    "click",
-    function(event) {
+function removeWelcome() {
 
-        const plus =
-            document.getElementById(
-                "plusButton"
-            );
+    const welcome =
+        document.getElementById(
+            "welcome"
+        );
+
+    if (welcome) {
+
+        welcome.remove();
+
+    }
+
+}
 
 
-        if (
-            toolsMenu &&
-            plus &&
-            !toolsMenu.contains(
-                event.target
-            ) &&
-            !plus.contains(
-                event.target
+function scrollBottom() {
+
+    chat.scrollTop =
+        chat.scrollHeight;
+
+}
+
+
+function sleep(ms) {
+
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
             )
-        ) {
+    );
 
-            toolsMenu.classList.remove(
-                "show"
-            );
-
-        }
-
-    }
-);
-
-
-// ========================================
-// VISITA
-// ========================================
-
-fetch(
-    "/api/visit",
-    {
-        method: "POST"
-    }
-).catch(
-    () => {}
-);
+}
