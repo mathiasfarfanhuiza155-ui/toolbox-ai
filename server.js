@@ -8,50 +8,45 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 app.use(express.json({ limit: "10mb" }));
 
-// Servir los archivos de la carpeta public
+// ==========================================
+// ARCHIVOS DE LA WEB
+// ==========================================
+
 app.use(express.static(path.join(__dirname, "public")));
 
-// ========================================
-// MODELOS
-// ========================================
+// ==========================================
+// CONFIGURACIÓN DE MORVIX
+// ==========================================
 
-const CHAT_MODEL = "gemini-2.5-flash";
-const IMAGE_MODEL = "gemini-3.1-flash-image";
+const MODEL = "gemini-3.6-flash";
 
-// ========================================
+// ==========================================
 // ESTADÍSTICAS
-// ========================================
+// ==========================================
 
 let stats = {
     visits: 0,
     messages: 0,
-    imageGenerations: 0,
-    activeUsers: 0
+    imageGenerations: 0
 };
 
-// ========================================
+// ==========================================
 // ESTADÍSTICAS
-// ========================================
+// ==========================================
 
 app.get("/api/stats", (req, res) => {
 
-    res.json({
-        visits: stats.visits,
-        messages: stats.messages,
-        imageGenerations: stats.imageGenerations,
-        activeUsers: stats.activeUsers
-    });
+    res.json(stats);
 
 });
 
-// ========================================
+// ==========================================
 // REGISTRAR VISITA
-// ========================================
+// ==========================================
 
 app.post("/api/visit", (req, res) => {
 
     stats.visits++;
-    stats.activeUsers++;
 
     res.json({
         success: true
@@ -59,9 +54,9 @@ app.post("/api/visit", (req, res) => {
 
 });
 
-// ========================================
-// CHAT CON GEMINI
-// ========================================
+// ==========================================
+// CHAT MORVIX AI
+// ==========================================
 
 app.post("/api/chat", async (req, res) => {
 
@@ -70,7 +65,8 @@ app.post("/api/chat", async (req, res) => {
         if (!GEMINI_API_KEY) {
 
             return res.status(500).json({
-                error: "GEMINI_API_KEY no está configurada en Render."
+                error:
+                    "No se encontró GEMINI_API_KEY en Render."
             });
 
         }
@@ -80,119 +76,139 @@ app.post("/api/chat", async (req, res) => {
         if (!Array.isArray(messages)) {
 
             return res.status(400).json({
-                error: "Formato de mensajes inválido."
+                error:
+                    "Los mensajes enviados no son válidos."
             });
 
         }
 
         stats.messages++;
 
-        const contents = messages.map((message) => {
+        // ======================================
+        // CONVERTIR EL HISTORIAL
+        // ======================================
 
-            return {
-                role:
+        let conversation = messages
+            .map(message => {
+
+                const role =
                     message.role === "assistant"
                         ? "model"
-                        : "user",
+                        : "user";
 
-                parts: [
-                    {
-                        text: String(
-                            message.content || ""
-                        )
-                    }
-                ]
-            };
+                return `${role}: ${message.content}`;
 
-        });
+            })
+            .join("\n\n");
 
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${CHAT_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-            {
-                method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+        // ======================================
+        // INSTRUCCIONES DE MORVIX
+        // ======================================
 
-                body: JSON.stringify({
-
-                    systemInstruction: {
-
-                        parts: [
-
-                            {
-                                text: `
+        const systemInstruction = `
 Eres MORVIX AI.
 
 Tu nombre es MORVIX AI.
 
-Eres un asistente inteligente, moderno, amable, creativo y útil.
+Eres una inteligencia artificial moderna,
+rápida, creativa, amable y útil.
 
-Responde en español salvo que el usuario solicite otro idioma.
+Responde principalmente en español.
 
-Ayuda al usuario con:
+Puedes ayudar con:
 
-- preguntas generales
 - tareas escolares
 - matemáticas
+- ciencia
 - programación
+- HTML
+- CSS
+- JavaScript
 - creación de páginas web
-- ideas creativas
-- escritura
-- explicaciones
 - tecnología
+- ideas de negocios
+- escritura
+- creatividad
+- explicaciones
 - proyectos
+- preguntas generales
 
-Tus respuestas deben ser claras y fáciles de leer.
+Tus respuestas deben ser claras,
+bien organizadas y fáciles de entender.
 
-Utiliza Markdown cuando sea útil.
+Utiliza Markdown cuando sea conveniente.
 
 Puedes utilizar:
 
-- títulos
-- subtítulos
-- listas
-- negrita
-- ejemplos
-- código
-- tablas
+# Títulos
 
-Cuando escribas código, utiliza bloques de código.
+## Subtítulos
 
-No inventes información cuando no estés seguro.
+**Negrita**
 
-Nunca reveles la API Key ni información privada del servidor.
+- Listas
+
+1. Listas numeradas
+
+También puedes utilizar bloques de código.
+
+Cuando el usuario pida código,
+proporciona código completo y funcional.
+
+No inventes información.
+
+Si no sabes algo, dilo claramente.
+
+Nunca muestres la API Key.
+
+Nunca reveles información privada del servidor.
 
 Tu identidad es MORVIX AI.
-`
-                            }
+`;
 
-                        ]
 
-                    },
+        // ======================================
+        // INTERACTIONS API
+        // ======================================
 
-                    contents: contents,
+        const response = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/interactions",
+            {
+                method: "POST",
 
-                    generationConfig: {
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": GEMINI_API_KEY
+                },
 
-                        temperature: 0.8,
+                body: JSON.stringify({
 
-                        maxOutputTokens: 4096
+                    model: MODEL,
 
-                    }
+                    system_instruction:
+                        systemInstruction,
+
+                    input: conversation,
+
+                    store: false
 
                 })
-
             }
         );
 
+
         const data = await response.json();
+
+
+        // ======================================
+        // ERROR DE GEMINI
+        // ======================================
 
         if (!response.ok) {
 
             console.error(
-                "Error de Gemini:",
+                "ERROR GEMINI:",
                 JSON.stringify(
                     data,
                     null,
@@ -200,53 +216,126 @@ Tu identidad es MORVIX AI.
                 )
             );
 
-            return res.status(response.status).json({
+            return res.status(
+                response.status
+            ).json({
 
                 error:
                     data?.error?.message ||
-                    "Error de Gemini."
+                    "Error desconocido de Gemini."
 
             });
 
         }
 
-        const answer =
-            data?.candidates?.[0]?.content?.parts
-                ?.map(
-                    (part) =>
-                        part.text || ""
-                )
-                .join("")
-                .trim();
 
-        if (!answer) {
+        // ======================================
+        // OBTENER RESPUESTA
+        // ======================================
+
+        let answer = "";
+
+
+        // Forma recomendada
+        if (
+            typeof data.output_text === "string"
+        ) {
+
+            answer =
+                data.output_text;
+
+        }
+
+
+        // Compatibilidad con respuestas
+        // estructuradas
+        if (
+            !answer &&
+            Array.isArray(data.steps)
+        ) {
+
+            for (
+                const step
+                of data.steps
+            ) {
+
+                if (
+                    Array.isArray(
+                        step.content
+                    )
+                ) {
+
+                    for (
+                        const content
+                        of step.content
+                    ) {
+
+                        if (
+                            content.type === "text"
+                        ) {
+
+                            answer +=
+                                content.text || "";
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+        // ======================================
+        // COMPROBAR RESPUESTA
+        // ======================================
+
+        if (!answer.trim()) {
+
+            console.error(
+                "Respuesta completa de Gemini:",
+                JSON.stringify(
+                    data,
+                    null,
+                    2
+                )
+            );
 
             return res.status(500).json({
 
                 error:
-                    "Gemini no devolvió ninguna respuesta."
+                    "Gemini no devolvió texto."
 
             });
 
         }
 
+
+        // ======================================
+        // RESPUESTA
+        // ======================================
+
         res.json({
 
-            answer: answer
+            answer:
+                answer.trim()
 
         });
+
 
     } catch (error) {
 
         console.error(
-            "Error del servidor:",
+            "ERROR DEL SERVIDOR:",
             error
         );
 
         res.status(500).json({
 
             error:
-                "MORVIX AI tuvo un problema al conectarse con Gemini."
+                "MORVIX AI no pudo conectarse con Gemini."
 
         });
 
@@ -254,9 +343,9 @@ Tu identidad es MORVIX AI.
 
 });
 
-// ========================================
+// ==========================================
 // GENERACIÓN DE IMÁGENES
-// ========================================
+// ==========================================
 
 app.post("/api/image", async (req, res) => {
 
@@ -267,7 +356,7 @@ app.post("/api/image", async (req, res) => {
             return res.status(500).json({
 
                 error:
-                    "GEMINI_API_KEY no está configurada en Render."
+                    "No se encontró GEMINI_API_KEY."
 
             });
 
@@ -278,18 +367,21 @@ app.post("/api/image", async (req, res) => {
                 req.body.prompt || ""
             ).trim();
 
+
         if (!prompt) {
 
             return res.status(400).json({
 
                 error:
-                    "Escribe una descripción para la imagen."
+                    "Escribe qué imagen quieres crear."
 
             });
 
         }
 
+
         stats.imageGenerations++;
+
 
         const response = await fetch(
 
@@ -312,15 +404,14 @@ app.post("/api/image", async (req, res) => {
                 body: JSON.stringify({
 
                     model:
-                        IMAGE_MODEL,
+                        "gemini-3.1-flash-image",
 
                     input:
                         prompt,
 
                     response_format: {
 
-                        type:
-                            "image",
+                        type: "image",
 
                         aspect_ratio:
                             "1:1",
@@ -328,7 +419,9 @@ app.post("/api/image", async (req, res) => {
                         image_size:
                             "1K"
 
-                    }
+                    },
+
+                    store: false
 
                 })
 
@@ -336,14 +429,16 @@ app.post("/api/image", async (req, res) => {
 
         );
 
+
         const data =
             await response.json();
+
 
         if (!response.ok) {
 
             console.error(
 
-                "Error de generación de imagen:",
+                "ERROR IMAGEN:",
 
                 JSON.stringify(
                     data,
@@ -359,28 +454,30 @@ app.post("/api/image", async (req, res) => {
 
                 error:
                     data?.error?.message ||
-                    "No se pudo generar la imagen."
+                    "No se pudo crear la imagen."
 
             });
 
         }
 
+
         let imageData = null;
-
-        let mimeType =
-            "image/png";
+        let mimeType = "image/png";
 
 
-        // Buscar imagen en output
+        // ======================================
+        // BUSCAR IMAGEN
+        // ======================================
+
         if (
             Array.isArray(
-                data.output
+                data.steps
             )
         ) {
 
             for (
                 const step
-                of data.output
+                of data.steps
             ) {
 
                 if (
@@ -395,44 +492,22 @@ app.post("/api/image", async (req, res) => {
                     ) {
 
                         if (
-
-                            item.type ===
-                                "image" &&
-
-                            item.data
-
+                            item.type === "image"
                         ) {
 
                             imageData =
-                                item.data;
+                                item.data ||
+                                item.image ||
+                                item.base64 ||
+                                null;
 
                             mimeType =
                                 item.mime_type ||
                                 item.mimeType ||
                                 "image/png";
-
                         }
 
                     }
-
-                }
-
-                if (
-
-                    step.type ===
-                        "image" &&
-
-                    step.data
-
-                ) {
-
-                    imageData =
-                        step.data;
-
-                    mimeType =
-                        step.mime_type ||
-                        step.mimeType ||
-                        "image/png";
 
                 }
 
@@ -441,7 +516,7 @@ app.post("/api/image", async (req, res) => {
         }
 
 
-        // Compatibilidad adicional
+        // Compatibilidad
         if (
             !imageData &&
             data.output_image
@@ -461,7 +536,7 @@ app.post("/api/image", async (req, res) => {
 
             console.error(
 
-                "Gemini no devolvió una imagen:",
+                "Gemini no devolvió imagen:",
 
                 JSON.stringify(
                     data,
@@ -474,7 +549,7 @@ app.post("/api/image", async (req, res) => {
             return res.status(500).json({
 
                 error:
-                    "Gemini respondió pero no encontramos la imagen."
+                    "La IA respondió pero no encontramos la imagen."
 
             });
 
@@ -490,10 +565,11 @@ app.post("/api/image", async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         console.error(
-            "Error de imagen:",
+            "ERROR IMAGEN:",
             error
         );
 
@@ -508,38 +584,36 @@ app.post("/api/image", async (req, res) => {
 
 });
 
-// ========================================
-// PÁGINA PRINCIPAL
-// ========================================
-
-// IMPORTANTE:
-// No usamos app.get("*") porque Express 5
-// produce el error PathError.
+// ==========================================
+// SERVIR INDEX.HTML
+// ==========================================
 
 app.use((req, res) => {
 
     res.sendFile(
-
         path.join(
             __dirname,
             "public",
             "index.html"
         )
-
     );
 
 });
 
-// ========================================
+// ==========================================
 // INICIAR SERVIDOR
-// ========================================
+// ==========================================
 
 app.listen(
     PORT,
     () => {
 
         console.log(
-            `✦ MORVIX AI funcionando en el puerto ${PORT}`
+            `🚀 MORVIX AI funcionando en el puerto ${PORT}`
+        );
+
+        console.log(
+            `🤖 Modelo: ${MODEL}`
         );
 
     }
