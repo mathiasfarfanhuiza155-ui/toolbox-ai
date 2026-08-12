@@ -38,7 +38,7 @@ async function sendMessage() {
   input.value = "";
 
   const thinking = addMessage(
-    "ToolBox AI está pensando...",
+    "MORVIX AI está pensando...",
     "ai"
   );
 
@@ -61,12 +61,9 @@ async function sendMessage() {
       }
     );
 
-
     const data = await response.json();
 
-
     thinking.remove();
-
 
     if (!response.ok) {
 
@@ -76,12 +73,10 @@ async function sendMessage() {
 
     }
 
-
     addMessage(
       data.answer,
       "ai"
     );
-
 
     messages.push({
 
@@ -91,20 +86,18 @@ async function sendMessage() {
 
     });
 
-
   } catch (error) {
 
     thinking.remove();
 
     addMessage(
-      "❌ No pude conectarme con la IA. Revisa la configuración del servidor.",
+      "❌ MORVIX AI no pudo conectarse con el servidor. Revisa la configuración de Render.",
       "ai"
     );
 
     console.error(error);
 
   }
-
 
   sendButton.disabled = false;
 
@@ -121,7 +114,6 @@ function addMessage(text, type) {
   message.className =
     "message " + type;
 
-
   const icon =
     document.createElement("div");
 
@@ -133,12 +125,10 @@ function addMessage(text, type) {
         : "ai-icon"
     );
 
-
   icon.textContent =
     type === "user"
       ? "M"
       : "✦";
-
 
   const content =
     document.createElement("div");
@@ -146,22 +136,17 @@ function addMessage(text, type) {
   content.className =
     "message-content";
 
-
   content.textContent =
     text;
-
 
   message.appendChild(icon);
 
   message.appendChild(content);
 
-
   chat.appendChild(message);
-
 
   chat.scrollTop =
     chat.scrollHeight;
-
 
   return message;
 
@@ -211,8 +196,28 @@ function newChat() {
 
       <p>
         Pregunta, aprende, crea y descubre
-        con ToolBox AI.
+        con MORVIX AI.
       </p>
+
+      <div class="suggestions">
+
+        <button onclick="suggest('Explícame qué es la inteligencia artificial')">
+          🧠 Explícame algo
+        </button>
+
+        <button onclick="suggest('Dame ideas para ganar dinero por internet')">
+          💰 Dame ideas
+        </button>
+
+        <button onclick="suggest('Ayúdame a crear una página web')">
+          💻 Crear una web
+        </button>
+
+        <button onclick="suggest('Ayúdame con una tarea escolar')">
+          📚 Ayúdame a estudiar
+        </button>
+
+      </div>
 
     </div>
 
@@ -251,7 +256,7 @@ function toggleSidebar() {
 function showAbout() {
 
   alert(
-    "ToolBox AI\n\n" +
+    "MORVIX AI\n\n" +
     "Asistente de inteligencia artificial."
   );
 
