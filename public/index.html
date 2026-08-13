@@ -2,385 +2,586 @@
 <html lang="es">
 
 <head>
-
   <meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <meta
-    name="theme-color"
-    content="#111827"
-  >
+  <meta name="theme-color" content="#7c3aed">
 
-  <meta
-    name="description"
-    content="MORVIX AI - Tu asistente inteligente"
-  >
+  <meta name="description"
+    content="MORVIX AI - Tu asistente de inteligencia artificial">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MORVIX AI">
 
   <title>MORVIX AI</title>
 
-  <link
-    rel="manifest"
-    href="/manifest.json"
-  >
+  <link rel="manifest" href="/manifest.json">
 
-  <link
-    rel="stylesheet"
-    href="/style.css"
-  >
-
+  <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
 
-<div class="app">
+  <div class="app">
 
-  <aside class="sidebar">
+    <!-- ================= SIDEBAR ================= -->
 
-    <div class="brand">
+    <aside class="sidebar" id="sidebar">
 
-      <div class="logo">
+      <div class="sidebar-top">
+
+        <div class="logo">
+
+          <div class="logo-icon">
+            ✦
+          </div>
+
+          <div class="logo-text">
+            <strong>MORVIX</strong>
+            <span>AI</span>
+          </div>
+
+        </div>
+
+        <button
+          class="new-chat"
+          id="newChatButton"
+          type="button"
+          onclick="newChat()">
+
+          <span>＋</span>
+          <span>Nuevo chat</span>
+
+        </button>
+
+        <div class="history-title">
+          CONVERSACIONES
+        </div>
+
+        <div
+          id="history"
+          class="history">
+        </div>
+
+      </div>
+
+
+      <!-- ================= SIDEBAR BOTTOM ================= -->
+
+      <div class="sidebar-bottom">
+
+        <button
+          type="button"
+          onclick="toggleTheme()">
+
+          <span>☀️</span>
+          <span>Cambiar tema</span>
+
+        </button>
+
+        <button
+          type="button"
+          onclick="showStats()">
+
+          <span>📊</span>
+          <span>Estadísticas</span>
+
+        </button>
+
+        <button
+          type="button"
+          onclick="showAbout()">
+
+          <span>⚙️</span>
+          <span>Configuración</span>
+
+        </button>
+
+
+        <div class="profile">
+
+          <div class="avatar">
+            M
+          </div>
+
+          <div class="profile-info">
+
+            <strong>Usuario</strong>
+
+            <small>
+              Plan gratuito
+            </small>
+
+          </div>
+
+          <span class="profile-arrow">
+            ›
+          </span>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN ================= -->
+
+    <main class="main">
+
+      <!-- TOPBAR -->
+
+      <header class="topbar">
+
+        <button
+          class="menu"
+          type="button"
+          onclick="toggleSidebar()"
+          aria-label="Abrir menú">
+
+          ☰
+
+        </button>
+
+
+        <div class="topbar-title">
+
+          <div class="mini-logo">
+            ✦
+          </div>
+
+          <div>
+
+            <strong>
+              MORVIX AI
+            </strong>
+
+            <span class="online">
+              <span class="online-dot"></span>
+              En línea
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div class="topbar-actions">
+
+          <button
+            type="button"
+            class="topbar-button"
+            onclick="newChat()"
+            title="Nuevo chat">
+
+            ＋
+
+          </button>
+
+          <button
+            type="button"
+            class="delete"
+            onclick="clearChat()"
+            title="Limpiar chat">
+
+            🗑️
+
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <!-- ================= CHAT ================= -->
+
+      <section
+        id="chat"
+        class="chat"
+        aria-live="polite">
+
+
+        <!-- WELCOME -->
+
+        <div class="welcome">
+
+          <div class="big-logo">
+            <span>✦</span>
+          </div>
+
+          <div class="welcome-badge">
+            ✨ Inteligencia artificial
+          </div>
+
+          <h1>
+            Hola, soy <span>MORVIX</span>
+          </h1>
+
+          <p>
+            Tu asistente de inteligencia artificial.
+            Pregunta, aprende, crea y descubre.
+          </p>
+
+
+          <!-- SUGGESTIONS -->
+
+          <div class="suggestions">
+
+            <button
+              type="button"
+              onclick="suggest('Explícame qué es la inteligencia artificial de forma sencilla')">
+
+              <span class="suggestion-icon">
+                🧠
+              </span>
+
+              <span>
+                <strong>Explícame algo</strong>
+                <small>Aprende un tema nuevo</small>
+              </span>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="suggest('Dame ideas creativas para ganar dinero por internet')">
+
+              <span class="suggestion-icon">
+                💡
+              </span>
+
+              <span>
+                <strong>Dame ideas</strong>
+                <small>Ideas creativas y proyectos</small>
+              </span>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="suggest('Ayúdame a crear una página web moderna')">
+
+              <span class="suggestion-icon">
+                💻
+              </span>
+
+              <span>
+                <strong>Crear una web</strong>
+                <small>Programación y tecnología</small>
+              </span>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="suggest('Ayúdame con una tarea escolar y explícame paso a paso')">
+
+              <span class="suggestion-icon">
+                📚
+              </span>
+
+              <span>
+                <strong>Estudiar</strong>
+                <small>Aprende paso a paso</small>
+              </span>
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================= INPUT ================= -->
+
+      <div class="input-area">
+
+        <div class="input-box">
+
+          <!-- BOTÓN + -->
+
+          <button
+            id="toolsButton"
+            class="tools-button"
+            type="button"
+            onclick="toggleTools()"
+            title="Herramientas">
+
+            ＋
+
+          </button>
+
+
+          <!-- MENÚ DE HERRAMIENTAS -->
+
+          <div
+            id="toolsMenu"
+            class="tools-menu">
+
+            <button
+              type="button"
+              onclick="selectTool('image')">
+
+              <span>🎨</span>
+
+              <div>
+                <strong>Crear imagen</strong>
+                <small>Genera imágenes con IA</small>
+              </div>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="selectTool('file')">
+
+              <span>📎</span>
+
+              <div>
+                <strong>Archivo</strong>
+                <small>Adjunta un archivo</small>
+              </div>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="selectTool('image-upload')">
+
+              <span>🖼️</span>
+
+              <div>
+                <strong>Imagen</strong>
+                <small>Sube una imagen</small>
+              </div>
+
+            </button>
+
+
+            <button
+              type="button"
+              onclick="selectTool('web')">
+
+              <span>🌐</span>
+
+              <div>
+                <strong>Búsqueda web</strong>
+                <small>Buscar información</small>
+              </div>
+
+            </button>
+
+          </div>
+
+
+          <!-- INPUT OCULTO PARA ARCHIVOS -->
+
+          <input
+            type="file"
+            id="fileInput"
+            hidden
+            multiple>
+
+
+          <!-- INPUT DE MENSAJE -->
+
+          <textarea
+            id="message"
+            placeholder="Escribe un mensaje a MORVIX..."
+            rows="1"
+            autocomplete="off"
+            spellcheck="true"></textarea>
+
+
+          <!-- BOTÓN ENVIAR -->
+
+          <button
+            id="send"
+            class="send"
+            type="button"
+            onclick="sendMessage()"
+            title="Enviar mensaje">
+
+            ↑
+
+          </button>
+
+        </div>
+
+
+        <p class="disclaimer">
+
+          MORVIX AI puede cometer errores.
+          Comprueba la información importante.
+
+        </p>
+
+      </div>
+
+    </main>
+
+  </div>
+
+
+  <!-- ================= MODAL ESTADÍSTICAS ================= -->
+
+  <div
+    id="statsModal"
+    class="modal hidden">
+
+    <div class="modal-content">
+
+      <button
+        class="modal-close"
+        type="button"
+        onclick="closeStats()">
+
+        ×
+
+      </button>
+
+      <div class="modal-icon">
+        📊
+      </div>
+
+      <h2>
+        Estadísticas
+      </h2>
+
+      <div class="stats-grid">
+
+        <div class="stat-card">
+
+          <strong id="statMessages">
+            0
+          </strong>
+
+          <span>
+            Mensajes
+          </span>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <strong id="statChats">
+            0
+          </strong>
+
+          <span>
+            Conversaciones
+          </span>
+
+        </div>
+
+
+        <div class="stat-card">
+
+          <strong>
+            Gratis
+          </strong>
+
+          <span>
+            Plan
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================= MODAL CONFIGURACIÓN ================= -->
+
+  <div
+    id="aboutModal"
+    class="modal hidden">
+
+    <div class="modal-content">
+
+      <button
+        class="modal-close"
+        type="button"
+        onclick="closeAbout()">
+
+        ×
+
+      </button>
+
+      <div class="modal-icon">
         ✦
       </div>
 
-      <div>
+      <h2>
+        MORVIX AI
+      </h2>
 
-        <strong>
-          MORVIX
-        </strong>
-
-        <span>
-          AI
-        </span>
-
-      </div>
-
-    </div>
-
-    <button
-      class="new-chat"
-      onclick="newChat()"
-    >
-      ＋ Nuevo chat
-    </button>
-
-    <div class="sidebar-title">
-      CONVERSACIONES
-    </div>
-
-    <div
-      id="history"
-      class="history"
-    ></div>
-
-    <div class="sidebar-bottom">
-
-      <button onclick="toggleTheme()">
-        🌙 Cambiar tema
-      </button>
-
-      <button onclick="showAbout()">
-        ⚙️ Configuración
-      </button>
-
-      <div class="profile">
-
-        <div class="avatar">
-          M
-        </div>
-
-        <div>
-
-          <strong>
-            Usuario
-          </strong>
-
-          <small>
-            Plan gratuito
-          </small>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </aside>
-
-
-  <main class="main">
-
-    <header class="topbar">
-
-      <button
-        class="menu"
-        onclick="toggleSidebar()"
-      >
-        ☰
-      </button>
-
-      <div class="top-brand">
-
-        <div class="mini-logo">
-          ✦
-        </div>
-
-        <div>
-
-          <strong>
-            MORVIX AI
-          </strong>
-
-          <span>
-            ● En línea
-          </span>
-
-        </div>
-
-      </div>
-
-      <button
-        class="delete"
-        onclick="clearChat()"
-      >
-        🗑️
-      </button>
-
-    </header>
-
-
-    <section
-      id="chat"
-      class="chat"
-    >
-
-      <div
-        class="welcome"
-        id="welcome"
-      >
-
-        <div class="big-logo">
-          ✦
-        </div>
-
-        <h1>
-          ¿Qué quieres hacer hoy?
-        </h1>
-
-        <p>
-          Pregunta, crea, aprende y descubre
-          con MORVIX AI.
-        </p>
-
-        <div class="welcome-grid">
-
-          <button
-            onclick="suggest('Explícame un tema de estudio')"
-          >
-            🧠
-            <strong>
-              Aprender
-            </strong>
-            <small>
-              Explica cualquier tema
-            </small>
-          </button>
-
-          <button
-            onclick="generateImage()"
-          >
-            🎨
-            <strong>
-              Crear imágenes
-            </strong>
-            <small>
-              Convierte ideas en imágenes
-            </small>
-          </button>
-
-          <button
-            onclick="suggest('Ayúdame a crear una página web moderna')"
-          >
-            💻
-            <strong>
-              Programar
-            </strong>
-            <small>
-              Crea y corrige código
-            </small>
-          </button>
-
-          <button
-            onclick="suggest('Dame 10 ideas creativas')"
-          >
-            ✨
-            <strong>
-              Creatividad
-            </strong>
-            <small>
-              Genera nuevas ideas
-            </small>
-          </button>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <div class="input-area">
-
-      <div
-        id="toolsMenu"
-        class="tools-menu"
-      >
-
-        <button
-          onclick="generateImage(); toggleTools()"
-        >
-          🎨
-          <span>
-            Crear imagen
-          </span>
-        </button>
-
-        <button
-          onclick="openFilePicker(); toggleTools()"
-        >
-          📎
-          <span>
-            Archivo
-          </span>
-        </button>
-
-        <button
-          onclick="uploadImage(); toggleTools()"
-        >
-          🖼️
-          <span>
-            Imagen
-          </span>
-        </button>
-
-        <button
-          onclick="webSearch(); toggleTools()"
-        >
-          🌐
-          <span>
-            Buscar en web
-          </span>
-        </button>
-
-      </div>
-
-
-      <div class="input-box">
-
-        <button
-          class="plus"
-          onclick="toggleTools()"
-        >
-          ＋
-        </button>
-
-        <textarea
-          id="message"
-          rows="1"
-          placeholder="Escribe un mensaje a MORVIX..."
-        ></textarea>
-
-        <button
-          id="send"
-          class="send"
-          onclick="sendMessage()"
-        >
-          ↑
-        </button>
-
-      </div>
-
-      <p class="disclaimer">
-        MORVIX AI puede cometer errores.
-        Comprueba la información importante.
+      <p>
+        Tu asistente de inteligencia artificial
+        para estudiar, crear, programar y aprender.
       </p>
 
-    </div>
-
-  </main>
-
-
-  <aside class="stats-panel">
-
-    <div class="stats-header">
-      📊 Estadísticas
-    </div>
-
-    <div class="stat-card">
-
-      <span>
-        👥 Usuarios
-      </span>
-
-      <strong id="statVisitors">
-        0
-      </strong>
+      <div class="about-version">
+        MORVIX AI · v3.0
+      </div>
 
     </div>
 
-    <div class="stat-card">
+  </div>
 
-      <span>
-        💬 Mensajes
-      </span>
 
-      <strong id="statMessages">
-        0
-      </strong>
+  <!-- ================= SCRIPT ================= -->
 
-    </div>
+  <script src="/script.js"></script>
 
-    <div class="stat-card">
 
-      <span>
-        🎨 Imágenes
-      </span>
+  <!-- ================= SERVICE WORKER ================= -->
 
-      <strong id="statImages">
-        0
-      </strong>
+  <script>
 
-    </div>
+    if ("serviceWorker" in navigator) {
 
-  </aside>
+      window.addEventListener("load", () => {
 
-</div>
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then(() => {
 
-<script src="/script.js"></script>
+            console.log(
+              "MORVIX AI: Service Worker activado"
+            );
 
-<script>
+          })
+          .catch((error) => {
 
-if ("serviceWorker" in navigator) {
+            console.error(
+              "Error al activar Service Worker:",
+              error
+            );
 
-  window.addEventListener(
-    "load",
-    () => {
+          });
 
-      navigator.serviceWorker.register(
-        "/sw.js"
-      ).catch(
-        console.error
-      );
+      });
 
     }
-  );
 
-}
-
-</script>
+  </script>
 
 </body>
+
 </html>
